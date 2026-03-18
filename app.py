@@ -65,7 +65,7 @@ def marcar():
 
     return jsonify({"mensaje": f"Marcación registrada: {tipo}"})
 
-@app.route("/reporte/<int:empleado_id>/<fecha>")
+@app.route("/reporte/<int:empleado_id>/<string:fecha>")
 def reporte_dia(empleado_id, fecha):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
