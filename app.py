@@ -29,6 +29,10 @@ def empleados():
     conn.close()
     return jsonify(result)
 
+@app.route("/test-reporte")
+def test_reporte():
+    return "Ruta reporte activa"
+
 @app.route("/marcar", methods=["POST"])
 def marcar():
     data = request.json
