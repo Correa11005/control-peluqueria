@@ -23,6 +23,17 @@ def formatear_tiempo(segundos):
     return f"{horas}h {minutos}m"
 
 
+def obtener_ultima_marcacion_hoy(cursor, empleado_id):
+    cursor.execute("""
+        SELECT tipo, fecha_hora
+        FROM marcaciones
+        WHERE empleado_id = %s AND DATE(fecha_hora) = CURDATE()
+        ORDER BY fecha_hora DESC
+        LIMIT 1
+    """, (empleado_id,))
+    return cursor.fetchone()
+
+
 @app.route("/")
 def home():
     return "Servidor funcionando"
@@ -40,11 +51,6 @@ def empleados():
     conn.close()
 
     return jsonify(result)
-
-
-@app.route("/test-reporte")
-def test_reporte():
-    return "Ruta reporte activa"
 
 
 @app.route("/marcar", methods=["POST"])
@@ -67,7 +73,46 @@ def marcar():
         return jsonify({"error": "Datos inválidos"}), 400
 
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
+
+    ultima = obtener_ultima_marcacion_hoy(cursor, empleado_id)
+    ultimo_tipo = ultima["tipo"] if ultima else None
+
+    if tipo == "entrada":
+        if ultimo_tipo in {"entrada", "fin_comida", "fin_descanso"}:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "No se puede registrar otra entrada ahora"}), 400
+
+    elif tipo == "salida":
+        if ultimo_tipo not in {"entrada", "fin_comida", "fin_descanso"}:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "No se puede registrar salida sin haber entrado o reanudado"}), 400
+
+    elif tipo == "inicio_comida":
+        if ultimo_tipo not in {"entrada", "fin_descanso"}:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "No se puede iniciar comida en este momento"}), 400
+
+    elif tipo == "fin_comida":
+        if ultimo_tipo != "inicio_comida":
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "No se puede finalizar comida sin haberla iniciado"}), 400
+
+    elif tipo == "inicio_descanso":
+        if ultimo_tipo not in {"entrada", "fin_comida"}:
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "No se puede iniciar descanso en este momento"}), 400
+
+    elif tipo == "fin_descanso":
+        if ultimo_tipo != "inicio_descanso":
+            cursor.close()
+            conn.close()
+            return jsonify({"error": "No se puede finalizar descanso sin haberlo iniciado"}), 400
 
     cursor.execute(
         "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, NOW())",
