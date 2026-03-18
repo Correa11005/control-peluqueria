@@ -11,10 +11,29 @@
 
 <h1>Registro de jornada</h1>
 
-<select id="empleado"></select>
+<select id="empleado_id">
+  <option value="">Selecciona empleado</option>
+  <option value="1">Camilo</option>
+  <option value="2">Ronald</option>
+  <option value="3">Melany</option>
+</select>
 
-<button onclick="registrar()">Registrar jornada</button>
+<div>
+  <button onclick="marcar('entrada')">Entrada</button>
+  <button onclick="marcar('salida')">Salida</button>
+</div>
 
+<div>
+  <button onclick="marcar('inicio_comida')">Inicio comida</button>
+  <button onclick="marcar('fin_comida')">Fin comida</button>
+</div>
+
+<div>
+  <button onclick="marcar('inicio_descanso')">Inicio descanso</button>
+  <button onclick="marcar('fin_descanso')">Fin descanso</button>
+</div>
+
+<p id="mensaje"></p>
 <p id="mensaje"></p>
 
 <script src="script.js"></script>

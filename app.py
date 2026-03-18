@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import mysql.connector
@@ -21,6 +22,60 @@ def formatear_tiempo(segundos):
     horas = segundos // 3600
     minutos = (segundos % 3600) // 60
     return f"{horas}h {minutos}m"
+
+
+def calcular_resumen_marcaciones(marcaciones):
+    entrada = None
+    salida = None
+    inicio_comida = None
+    fin_comida = None
+    inicio_descanso = None
+    fin_descanso = None
+
+    total_trabajado = 0
+    total_comida = 0
+    total_descanso = 0
+
+    for m in marcaciones:
+        tipo = m["tipo"]
+        fecha_hora = m["fecha_hora"]
+
+        if tipo == "entrada" and entrada is None:
+            entrada = fecha_hora
+        elif tipo == "salida":
+            salida = fecha_hora
+        elif tipo == "inicio_comida" and inicio_comida is None:
+            inicio_comida = fecha_hora
+        elif tipo == "fin_comida":
+            fin_comida = fecha_hora
+        elif tipo == "inicio_descanso" and inicio_descanso is None:
+            inicio_descanso = fecha_hora
+        elif tipo == "fin_descanso":
+            fin_descanso = fecha_hora
+
+    if entrada and salida:
+        total_trabajado = int((salida - entrada).total_seconds())
+
+    if inicio_comida and fin_comida:
+        total_comida = int((fin_comida - inicio_comida).total_seconds())
+
+    if inicio_descanso and fin_descanso:
+        total_descanso = int((fin_descanso - inicio_descanso).total_seconds())
+
+    neto = total_trabajado - total_comida - total_descanso
+
+    return {
+        "entrada": entrada,
+        "salida": salida,
+        "inicio_comida": inicio_comida,
+        "fin_comida": fin_comida,
+        "inicio_descanso": inicio_descanso,
+        "fin_descanso": fin_descanso,
+        "segundos_trabajados": total_trabajado,
+        "segundos_comida": total_comida,
+        "segundos_descanso": total_descanso,
+        "segundos_netos": neto
+    }
 
 
 def obtener_ultima_marcacion_hoy(cursor, empleado_id):
@@ -143,55 +198,87 @@ def reporte_dia(empleado_id, fecha):
     cursor.close()
     conn.close()
 
-    entrada = None
-    salida = None
-    inicio_comida = None
-    fin_comida = None
-    inicio_descanso = None
-    fin_descanso = None
-
-    for m in marcaciones:
-        if m["tipo"] == "entrada" and entrada is None:
-            entrada = m["fecha_hora"]
-        elif m["tipo"] == "salida":
-            salida = m["fecha_hora"]
-        elif m["tipo"] == "inicio_comida" and inicio_comida is None:
-            inicio_comida = m["fecha_hora"]
-        elif m["tipo"] == "fin_comida":
-            fin_comida = m["fecha_hora"]
-        elif m["tipo"] == "inicio_descanso" and inicio_descanso is None:
-            inicio_descanso = m["fecha_hora"]
-        elif m["tipo"] == "fin_descanso":
-            fin_descanso = m["fecha_hora"]
-
-    total_trabajado = 0
-    total_comida = 0
-    total_descanso = 0
-
-    if entrada and salida:
-        total_trabajado = int((salida - entrada).total_seconds())
-
-    if inicio_comida and fin_comida:
-        total_comida = int((fin_comida - inicio_comida).total_seconds())
-
-    if inicio_descanso and fin_descanso:
-        total_descanso = int((fin_descanso - inicio_descanso).total_seconds())
-
-    neto = total_trabajado - total_comida - total_descanso
+    resumen = calcular_resumen_marcaciones(marcaciones)
 
     return jsonify({
         "empleado_id": empleado_id,
         "fecha": fecha,
         "marcaciones": marcaciones,
-        "trabajado": formatear_tiempo(total_trabajado),
-        "comida": formatear_tiempo(total_comida),
-        "descanso": formatear_tiempo(total_descanso),
-        "neto": formatear_tiempo(neto),
-        "segundos_trabajados": total_trabajado,
-        "segundos_comida": total_comida,
-        "segundos_descanso": total_descanso,
-        "segundos_netos": neto
+        "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
+        "comida": formatear_tiempo(resumen["segundos_comida"]),
+        "descanso": formatear_tiempo(resumen["segundos_descanso"]),
+        "neto": formatear_tiempo(resumen["segundos_netos"]),
+        "segundos_trabajados": resumen["segundos_trabajados"],
+        "segundos_comida": resumen["segundos_comida"],
+        "segundos_descanso": resumen["segundos_descanso"],
+        "segundos_netos": resumen["segundos_netos"]
     })
+
+
+@app.route("/resumen_hoy")
+def resumen_hoy():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT id, nombre FROM empleados ORDER BY nombre")
+    empleados = cursor.fetchall()
+
+    ahora = datetime.now()
+    respuesta = []
+
+    for emp in empleados:
+        cursor.execute("""
+            SELECT tipo, fecha_hora
+            FROM marcaciones
+            WHERE empleado_id = %s AND DATE(fecha_hora) = CURDATE()
+            ORDER BY fecha_hora ASC
+        """, (emp["id"],))
+        marcaciones = cursor.fetchall()
+
+        resumen = calcular_resumen_marcaciones(marcaciones)
+
+        estado = "sin iniciar"
+        ultima_marcacion = None
+        desde = None
+        segundos_actuales = resumen["segundos_netos"]
+
+        if marcaciones:
+            ultima = marcaciones[-1]
+            ultima_marcacion = ultima["tipo"]
+
+            if ultima["tipo"] in {"entrada", "fin_comida", "fin_descanso"}:
+                estado = "trabajando"
+                desde = ultima["fecha_hora"]
+                segundos_actuales += int((ahora - ultima["fecha_hora"]).total_seconds())
+
+            elif ultima["tipo"] == "inicio_comida":
+                estado = "en comida"
+                desde = ultima["fecha_hora"]
+
+            elif ultima["tipo"] == "inicio_descanso":
+                estado = "en descanso"
+                desde = ultima["fecha_hora"]
+
+            elif ultima["tipo"] == "salida":
+                estado = "finalizado"
+
+        respuesta.append({
+            "empleado_id": emp["id"],
+            "nombre": emp["nombre"],
+            "estado": estado,
+            "ultima_marcacion": ultima_marcacion,
+            "desde": desde,
+            "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
+            "comida": formatear_tiempo(resumen["segundos_comida"]),
+            "descanso": formatear_tiempo(resumen["segundos_descanso"]),
+            "neto": formatear_tiempo(segundos_actuales),
+            "segundos_netos": segundos_actuales
+        })
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(respuesta)
 
 
 if __name__ == "__main__":

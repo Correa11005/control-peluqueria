@@ -1,48 +1,28 @@
-const selectEmpleado = document.getElementById("empleado")
+function marcar(tipo) {
+  const empleado_id = document.getElementById("empleado_id").value;
 
-fetch("http://127.0.0.1:5000/empleados")
+  if (!empleado_id) {
+    document.getElementById("mensaje").innerText = "Selecciona un empleado";
+    return;
+  }
 
-.then(res => res.json())
-
-.then(data => {
-
-data.forEach(emp => {
-
-let option = document.createElement("option")
-
-option.value = emp.id
-option.text = emp.nombre
-
-selectEmpleado.appendChild(option)
-
-})
-
-})
-
-function registrar(){
-
-const empleado_id = selectEmpleado.value
-
-fetch("http://127.0.0.1:5000/registro",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-empleado_id:empleado_id
-})
-
-})
-
-.then(res=>res.json())
-
-.then(data=>{
-
-document.getElementById("mensaje").innerText=data.mensaje
-
-})
-
+  fetch("https://control-peluqueria.onrender.com/marcar", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      empleado_id: parseInt(empleado_id),
+      tipo: tipo
+    })
+  })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("mensaje").innerText =
+        data.mensaje || data.error || JSON.stringify(data);
+    })
+    .catch(err => {
+      document.getElementById("mensaje").innerText = "Error de conexión";
+      console.error(err);
+    });
 }

@@ -1,10 +1,85 @@
-body{
-font-family:Arial;
-text-align:center;
-margin-top:100px;
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  text-align: center;
+  margin-top: 80px;
 }
 
-button{
-padding:15px;
-font-size:18px;
+h1 {
+  margin-bottom: 20px;
+}
+
+select {
+  padding: 10px;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+button {
+  margin: 5px;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+button:hover {
+  transform: scale(1.05);
+}
+
+button:nth-child(1) { background: #4CAF50; color: white; }
+button:nth-child(2) { background: #f44336; color: white; }
+button:nth-child(3) { background: #ff9800; color: white; }
+button:nth-child(4) { background: #2196F3; color: white; }
+button:nth-child(5) { background: #9c27b0; color: white; }
+button:nth-child(6) { background: #607d8b; color: white; }
+
+#mensaje {
+  margin-top: 20px;
+  font-weight: bold;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  text-align: center;
+  margin-top: 80px;
+}
+
+h1 {
+  margin-bottom: 25px;
+  font-size: 48px;
+}
+
+select {
+  padding: 12px;
+  font-size: 18px;
+  margin-bottom: 25px;
+  border-radius: 8px;
+}
+
+div {
+  margin: 12px 0;
+}
+
+button {
+  margin: 6px;
+  padding: 14px 22px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: 0.2s;
+}
+
+button:hover {
+  transform: scale(1.04);
+}
+
+#mensaje {
+  margin-top: 25px;
+  font-weight: bold;
+  font-size: 18px;
 }
