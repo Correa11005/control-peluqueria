@@ -1,42 +1,46 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-<meta charset="UTF-8">
-<title>Registro de jornada</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>Registro de jornada</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<h1>Registro de jornada</h1>
+  <h1>Control de Asistencia</h1>
 
-<select id="empleado_id">
-  <option value="">Selecciona empleado</option>
-  <option value="1">Camilo</option>
-  <option value="2">Ronald</option>
-  <option value="3">Melany</option>
-</select>
+  <button onclick="cargarResumen()">Actualizar</button>
 
-<div>
-  <button onclick="marcar('entrada')">Entrada</button>
-  <button onclick="marcar('salida')">Salida</button>
-</div>
+  <div id="panel"></div>
 
-<div>
-  <button onclick="marcar('inicio_comida')">Inicio comida</button>
-  <button onclick="marcar('fin_comida')">Fin comida</button>
-</div>
+  <p id="mensaje"></p>
+  <hr>
 
-<div>
-  <button onclick="marcar('inicio_descanso')">Inicio descanso</button>
-  <button onclick="marcar('fin_descanso')">Fin descanso</button>
-</div>
+  <h2>Registrar</h2>
 
-<p id="mensaje"></p>
-<p id="mensaje"></p>
+  <select id="empleado_id">
+    <option value="">Selecciona empleado</option>
+    <option value="1">Camilo</option>
+    <option value="2">Ronald</option>
+    <option value="3">Melany</option>
+  </select>
 
-<script src="script.js"></script>
+  <div>
+    <button onclick="marcar('entrada')">Entrada</button>
+    <button onclick="marcar('salida')">Salida</button>
+  </div>
+
+  <div>
+    <button onclick="marcar('inicio_comida')">Inicio comida</button>
+    <button onclick="marcar('fin_comida')">Fin comida</button>
+  </div>
+
+  <div>
+    <button onclick="marcar('inicio_descanso')">Inicio descanso</button>
+    <button onclick="marcar('fin_descanso')">Fin descanso</button>
+  </div>
+
+  <script src="script.js"></script>
 
 </body>
 </html>
