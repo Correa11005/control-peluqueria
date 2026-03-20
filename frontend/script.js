@@ -1,5 +1,4 @@
-const URL = "https://control-peluqueria.onrender.com";
-
+const URL = "http://127.0.0.1:5000";
 let timers = {};
 
 function formatear(segundos) {
@@ -7,6 +6,92 @@ function formatear(segundos) {
   const m = Math.floor((segundos % 3600) / 60);
   const s = segundos % 60;
   return `${h}h ${m}m ${s}s`;
+}
+
+function cargarHistorial() {
+  const empleadoId = document.getElementById("filtro_empleado").value;
+  const fecha = document.getElementById("filtro_fecha").value;
+  const contenedor = document.getElementById("historial");
+
+  let url = `${URL}/historial`;
+  const params = [];
+
+  if (empleadoId) {
+    params.push(`empleado_id=${empleadoId}`);
+  }
+
+  if (fecha) {
+    params.push(`fecha=${fecha}`);
+  }
+
+  if (params.length > 0) {
+    url += `?${params.join("&")}`;
+  }
+
+  fetch(url)
+    .then(res => {
+      if (!res.ok) {
+        throw new Error("No se pudo cargar el historial");
+      }
+      return res.json();
+    })
+    .then(data => {
+      if (!data.length) {
+        contenedor.innerHTML = "<p>No hay registros para mostrar.</p>";
+        return;
+      }
+
+      let html = `
+        <table border="1" cellpadding="8" cellspacing="0" style="width:100%; border-collapse:collapse; margin-top:20px;">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Empleado</th>
+              <th>Entrada</th>
+              <th>Salida</th>
+              <th>Inicio comida</th>
+              <th>Fin comida</th>
+              <th>Inicio descanso</th>
+              <th>Fin descanso</th>
+              <th>Trabajado</th>
+              <th>Comida</th>
+              <th>Descanso</th>
+              <th>Neto</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      data.forEach(item => {
+        html += `
+          <tr>
+            <td>${item.fecha}</td>
+            <td>${item.nombre}</td>
+            <td>${item.entrada}</td>
+            <td>${item.salida}</td>
+            <td>${item.inicio_comida}</td>
+            <td>${item.fin_comida}</td>
+            <td>${item.inicio_descanso}</td>
+            <td>${item.fin_descanso}</td>
+            <td>${item.trabajado}</td>
+            <td>${item.comida}</td>
+            <td>${item.descanso}</td>
+            <td>${item.neto}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+          </tbody>
+        </table>
+      `;
+
+      contenedor.innerHTML = html;
+    })
+    .catch(error => {
+      console.error(error);
+      contenedor.innerHTML = `<p>${error.message}</p>`;
+    });
 }
 
 function limpiarTimers() {
@@ -39,10 +124,12 @@ function cargarResumen() {
         const estado = document.createElement("p");
         estado.innerHTML = `<strong>Estado:</strong> ${emp.estado}`;
 
+        const tiempoId = `tiempo-${emp.empleado_id}`;
+
         const tiempo = document.createElement("p");
         tiempo.className = "tiempo";
-        tiempo.id = `tiempo-${emp.empleado_id}`;
-        tiempo.textContent = formatear(emp.segundos_netos || 0);
+        tiempo.id = tiempoId;
+        tiempo.textContent = formatear(Math.max(0, emp.segundos_netos || 0));
 
         const detalle = document.createElement("p");
         detalle.innerHTML = `
@@ -58,10 +145,20 @@ function cargarResumen() {
         panel.appendChild(card);
 
         if (emp.estado === "trabajando") {
-          let segundos = emp.segundos_netos || 0;
-          timers[emp.empleado_id] = setInterval(() => {
-            segundos += 1;
-            tiempo.textContent = formatear(segundos);
+          let segundos = Math.max(0, emp.segundos_netos || 0);
+
+          timers[emp.nombre] = setInterval(() => {
+            if (emp.empleado_id === 3 && segundos >= 14400) {
+              clearInterval(timers[emp.nombre]);
+              return;
+            }
+
+            segundos++;
+
+            const elementoTiempo = document.getElementById(tiempoId);
+            if (elementoTiempo) {
+              elementoTiempo.innerText = formatear(segundos);
+            }
           }, 1000);
         }
       });
@@ -71,6 +168,10 @@ function cargarResumen() {
       document.getElementById("mensaje").innerText =
         "No se pudo cargar el resumen de hoy.";
     });
+}
+function toggleHistorial() {
+  const panel = document.getElementById("panelHistorial");
+  panel.classList.toggle("oculto");
 }
 
 function marcar(tipo) {

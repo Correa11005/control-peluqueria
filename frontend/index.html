@@ -4,6 +4,35 @@
   <meta charset="UTF-8">
   <title>Registro de jornada</title>
   <link rel="stylesheet" href="style.css">
+  <hr>
+
+<!-- Botón flotante -->
+<button id="btnHistorialFlotante" onclick="toggleHistorial()">
+  Consulta Tiempos Laborales
+</button>
+
+<!-- Panel flotante del historial -->
+<div id="panelHistorial" class="panel-historial oculto">
+  <div class="panel-historial-header">
+    <h2>Historial de jornadas</h2>
+    <button class="cerrar-panel" onclick="toggleHistorial()">✕</button>
+  </div>
+
+  <div class="filtros-historial">
+    <select id="filtro_empleado">
+      <option value="">Todos los empleados</option>
+      <option value="1">Camilo</option>
+      <option value="2">Ronald</option>
+      <option value="3">Melany</option>
+    </select>
+
+    <input type="date" id="filtro_fecha">
+
+    <button onclick="cargarHistorial()">Consultar historial</button>
+  </div>
+
+  <div id="historial"></div>
+</div>
 </head>
 <body>
 
