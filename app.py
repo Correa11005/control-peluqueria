@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import os
 import mysql.connector
 import urllib.parse as urlparse
+from flask import send_from_directory
 
 LIMITE_SEGUNDOS_MELANY = 4 * 3600
 
@@ -302,6 +303,13 @@ def historial():
 def home():
     return "Servidor funcionando"
 
+@app.route("/")
+def servir_index():
+    return send_from_directory("frontend", "index.html")
+
+@app.route("/<path:path>")
+def servir_frontend(path):
+    return send_from_directory("frontend", path)
 
 @app.route("/empleados")
 def empleados():
