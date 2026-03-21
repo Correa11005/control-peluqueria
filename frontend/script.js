@@ -1,15 +1,32 @@
-const URL =
-  window.location.hostname === "127.0.0.1" ||
-  window.location.hostname === "localhost"
-    ? "http://127.0.0.1:5000"
-    : "";
-let timers = {};
+let timersResumen = {};
+let timerSeleccionado = null;
+let ultimoResumen = [];
+
+const LIMITE_SEGUNDOS_MELANY = 4 * 3600;
 
 function formatear(segundos) {
+  segundos = Math.max(0, parseInt(segundos || 0, 10));
   const h = Math.floor(segundos / 3600);
   const m = Math.floor((segundos % 3600) / 60);
   const s = segundos % 60;
   return `${h}h ${m}m ${s}s`;
+}
+
+function limpiarTimersResumen() {
+  Object.values(timersResumen).forEach(clearInterval);
+  timersResumen = {};
+}
+
+function limpiarTimerSeleccionado() {
+  if (timerSeleccionado) {
+    clearInterval(timerSeleccionado);
+    timerSeleccionado = null;
+  }
+}
+
+function toggleHistorial() {
+  const panel = document.getElementById("panelHistorial");
+  panel.classList.toggle("oculto");
 }
 
 function cargarHistorial() {
@@ -19,29 +36,20 @@ function cargarHistorial() {
 
   contenedor.innerHTML = "<p>Cargando historial...</p>";
 
-  let url = `${URL}/historial`;
-  const params = [];
+  const params = new URLSearchParams();
+  if (empleadoId) params.append("empleado_id", empleadoId);
+  if (fecha) params.append("fecha", fecha);
 
-  if (empleadoId) {
-    params.push(`empleado_id=${empleadoId}`);
-  }
-
-  if (fecha) {
-    params.push(`fecha=${fecha}`);
-  }
-
-  if (params.length > 0) {
-    url += `?${params.join("&")}`;
-  }
+  const url = params.toString() ? `/historial?${params.toString()}` : "/historial";
 
   fetch(url)
-    .then(res => {
+    .then(async (res) => {
       if (!res.ok) {
         throw new Error("No se pudo cargar el historial");
       }
       return res.json();
     })
-    .then(data => {
+    .then((data) => {
       if (!data.length) {
         contenedor.innerHTML = "<p>No hay registros para mostrar.</p>";
         return;
@@ -68,7 +76,7 @@ function cargarHistorial() {
           <tbody>
       `;
 
-      data.forEach(item => {
+      data.forEach((item) => {
         html += `
           <tr>
             <td>${item.fecha}</td>
@@ -87,103 +95,142 @@ function cargarHistorial() {
         `;
       });
 
-      html += `
-          </tbody>
-        </table>
-      `;
-
+      html += "</tbody></table>";
       contenedor.innerHTML = html;
     })
-    .catch(error => {
+    .catch((error) => {
       console.error(error);
       contenedor.innerHTML = `<p>${error.message}</p>`;
     });
 }
 
-function limpiarTimers() {
-  for (const key in timers) {
-    clearInterval(timers[key]);
+function iniciarTimerCard(emp, tiempoId) {
+  if (emp.estado !== "trabajando") return;
+
+  let segundos = Math.max(0, parseInt(emp.segundos_netos || 0, 10));
+
+  timersResumen[emp.empleado_id] = setInterval(() => {
+    if (emp.empleado_id === 3 && segundos >= LIMITE_SEGUNDOS_MELANY) {
+      clearInterval(timersResumen[emp.empleado_id]);
+      return;
+    }
+
+    segundos++;
+    const elementoTiempo = document.getElementById(tiempoId);
+    if (elementoTiempo) {
+      elementoTiempo.innerText = formatear(segundos);
+    }
+  }, 1000);
+}
+
+function renderizarCardsResumen(data) {
+  const panel = document.getElementById("panel");
+  panel.innerHTML = "";
+  limpiarTimersResumen();
+
+  data.forEach((emp) => {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const claseEstado = `estado-${emp.estado.replace(/\s+/g, "-")}`;
+    card.classList.add(claseEstado);
+
+    const nombre = document.createElement("h3");
+    nombre.textContent = emp.nombre;
+
+    const estado = document.createElement("p");
+    estado.innerHTML = `<strong>Estado:</strong> ${emp.estado}`;
+
+    const tiempoId = `tiempo-${emp.empleado_id}`;
+    const tiempo = document.createElement("p");
+    tiempo.className = "tiempo";
+    tiempo.id = tiempoId;
+    tiempo.textContent = formatear(emp.segundos_netos || 0);
+
+    const detalle = document.createElement("p");
+    detalle.innerHTML = `
+      <strong>Neto:</strong> ${emp.neto}<br>
+      <strong>Comida:</strong> ${emp.comida}<br>
+      <strong>Descanso:</strong> ${emp.descanso}
+    `;
+
+    card.appendChild(nombre);
+    card.appendChild(estado);
+    card.appendChild(tiempo);
+    card.appendChild(detalle);
+    panel.appendChild(card);
+
+    iniciarTimerCard(emp, tiempoId);
+  });
+}
+
+function actualizarVistaEmpleadoSeleccionado() {
+  const select = document.getElementById("empleado_id");
+  const estadoEl = document.getElementById("estadoEmpleadoSeleccionado");
+  const cronometroEl = document.getElementById("cronometroEmpleado");
+  const detalleEl = document.getElementById("detalleEmpleadoSeleccionado");
+
+  limpiarTimerSeleccionado();
+
+  if (!select || !select.value) {
+    estadoEl.innerText = "Estado: sin iniciar";
+    cronometroEl.innerText = "0h 0m 0s";
+    detalleEl.innerText = "Neto: 0h 0m 0s | Comida: 0h 0m 0s | Descanso: 0h 0m 0s";
+    return;
   }
-  timers = {};
+
+  const empleadoId = parseInt(select.value, 10);
+  const emp = ultimoResumen.find((item) => item.empleado_id === empleadoId);
+
+  if (!emp) {
+    estadoEl.innerText = "Estado: sin datos";
+    cronometroEl.innerText = "0h 0m 0s";
+    detalleEl.innerText = "Neto: 0h 0m 0s | Comida: 0h 0m 0s | Descanso: 0h 0m 0s";
+    return;
+  }
+
+  estadoEl.innerText = `Estado: ${emp.estado}`;
+  cronometroEl.innerText = formatear(emp.segundos_netos || 0);
+  detalleEl.innerText = `Neto: ${emp.neto} | Comida: ${emp.comida} | Descanso: ${emp.descanso}`;
+
+  if (emp.estado === "trabajando") {
+    let segundos = Math.max(0, parseInt(emp.segundos_netos || 0, 10));
+
+    timerSeleccionado = setInterval(() => {
+      if (emp.empleado_id === 3 && segundos >= LIMITE_SEGUNDOS_MELANY) {
+        clearInterval(timerSeleccionado);
+        return;
+      }
+
+      segundos++;
+      cronometroEl.innerText = formatear(segundos);
+    }, 1000);
+  }
 }
 
 function cargarResumen() {
-  fetch(`${URL}/resumen_hoy`)
-    .then(res => {
+  fetch("/resumen_hoy")
+    .then(async (res) => {
       if (!res.ok) {
         throw new Error("No se pudo cargar el resumen");
       }
       return res.json();
     })
-    .then(data => {
-      const panel = document.getElementById("panel");
-      panel.innerHTML = "";
-      limpiarTimers();
-
-      data.forEach(emp => {
-        const card = document.createElement("div");
-        card.className = "card";
-        const claseEstado = `estado-${emp.estado.replace(/\s+/g, "-")}`;
-        card.classList.add(claseEstado);
-
-        const nombre = document.createElement("h3");
-        nombre.textContent = emp.nombre;
-
-        const estado = document.createElement("p");
-        estado.innerHTML = `<strong>Estado:</strong> ${emp.estado}`;
-
-        const tiempoId = `tiempo-${emp.empleado_id}`;
-
-        const tiempo = document.createElement("p");
-        tiempo.className = "tiempo";
-        tiempo.id = tiempoId;
-        tiempo.textContent = formatear(Math.max(0, emp.segundos_netos || 0));
-
-        const detalle = document.createElement("p");
-        detalle.innerHTML = `
-          <strong>Neto:</strong> ${emp.neto}<br>
-          <strong>Comida:</strong> ${emp.comida}<br>
-          <strong>Descanso:</strong> ${emp.descanso}
-        `;
-
-        card.appendChild(nombre);
-        card.appendChild(estado);
-        card.appendChild(tiempo);
-        card.appendChild(detalle);
-        panel.appendChild(card);
-
-        if (emp.estado === "trabajando") {
-          let segundos = Math.max(0, emp.segundos_netos || 0);
-
-          timers[emp.nombre] = setInterval(() => {
-            if (emp.empleado_id === 3 && segundos >= 14400) {
-              clearInterval(timers[emp.nombre]);
-              return;
-            }
-
-            segundos++;
-
-            const elementoTiempo = document.getElementById(tiempoId);
-            if (elementoTiempo) {
-              elementoTiempo.innerText = formatear(segundos);
-            }
-          }, 1000);
-        }
-      });
+    .then((data) => {
+      ultimoResumen = data;
+      renderizarCardsResumen(data);
+      actualizarVistaEmpleadoSeleccionado();
+      document.getElementById("mensaje").innerText = "";
     })
-    .catch(error => {
+    .catch((error) => {
       console.error(error);
-      document.getElementById("mensaje").innerText =
-        "No se pudo cargar el resumen de hoy.";
+      document.getElementById("mensaje").innerText = "No se pudo cargar el resumen de hoy.";
     });
-}
-function toggleHistorial() {
-  const panel = document.getElementById("panelHistorial");
-  panel.classList.toggle("oculto");
 }
 
 function marcar(tipo) {
-  const empleado_id = document.getElementById("empleado_id").value;
+  const empleadoSelect = document.getElementById("empleado_id");
+  const empleado_id = empleadoSelect.value;
   const mensaje = document.getElementById("mensaje");
 
   if (!empleado_id) {
@@ -193,7 +240,7 @@ function marcar(tipo) {
 
   mensaje.innerText = "Registrando...";
 
-  fetch(`${URL}/marcar`, {
+  fetch("/marcar", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -203,14 +250,16 @@ function marcar(tipo) {
       tipo: tipo
     })
   })
-    .then(async res => {
+    .then(async (res) => {
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(data.error || "No se pudo registrar la marcación");
       }
+
       return data;
     })
-    .then(data => {
+    .then(() => {
       const textos = {
         entrada: "ya está empezando la labor",
         salida: "ha finalizado la jornada",
@@ -220,15 +269,12 @@ function marcar(tipo) {
         fin_descanso: "finalizó su descanso"
       };
 
-      const nombre = document.getElementById("empleado_id")
-        .options[document.getElementById("empleado_id").selectedIndex].text;
-
+      const nombre = empleadoSelect.options[empleadoSelect.selectedIndex].text;
       mensaje.innerText = `${nombre} ${textos[tipo]}.`;
-      console.log(data);
 
       cargarResumen();
     })
-    .catch(error => {
+    .catch((error) => {
       console.error(error);
       mensaje.innerText = error.message || "Error de conexión.";
     });
@@ -236,5 +282,9 @@ function marcar(tipo) {
 
 window.addEventListener("load", () => {
   cargarResumen();
-;
-}); 
+
+  const selectEmpleado = document.getElementById("empleado_id");
+  if (selectEmpleado) {
+    selectEmpleado.addEventListener("change", actualizarVistaEmpleadoSeleccionado);
+  }
+});

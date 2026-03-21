@@ -1,77 +1,82 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <title>Registro de jornada</title>
   <link rel="stylesheet" href="style.css">
-  <hr>
-
-<!-- Botón flotante -->
-<button id="btnHistorialFlotante" onclick="toggleHistorial()">
-  Consulta Tiempos Laborales
-</button>
-
-<!-- Panel flotante del historial --> 
-<div id="panelHistorial" class="panel-historial oculto">
-  <div class="panel-historial-header">
-    <h2>Historial de jornadas</h2>
-    <button class="cerrar-panel" onclick="toggleHistorial()">✕</button>
-  </div>
-
-  <div class="filtros-historial">
-    <select id="filtro_empleado">
-      <option value="">Todos los empleados</option>
-      <option value="1">Camilo</option>
-      <option value="2">Ronald</option>
-      <option value="3">Melany</option>
-    </select>
-
-    <input type="date" id="filtro_fecha">
-
-    <button onclick="cargarHistorial()">Consultar historial</button>
-  </div>
-
-  <div id="historial"></div>
-</div>
 </head>
 <body>
-<img src="logo.jpeg" class="logo-salon" />
+  <img src="logo.jpeg" class="logo-salon" alt="Logo del salón" />
   <h1>Control de Asistencia</h1>
 
-<button class="btn-actualizar" onclick="cargarResumen()">Actualizar</button>
+  <button class="btn-actualizar" onclick="cargarResumen()">Actualizar</button>
 
-<div id="panel"></div>
+  <div id="panel"></div>
 
-<p id="mensaje"></p>
-<hr>
+  <p id="mensaje"></p>
+  <hr>
 
-<h2>Registrar</h2>
+  <button id="btnHistorialFlotante" onclick="toggleHistorial()">
+    Consulta Tiempos Laborales
+  </button>
 
-<select id="empleado_id">
-  <option value="">Selecciona empleado</option>
-  <option value="1">Camilo</option>
-  <option value="2">Ronald</option>
-  <option value="3">Melany</option>
-</select>
+  <div id="panelHistorial" class="panel-historial oculto">
+    <div class="panel-historial-header">
+      <h2>Historial de jornadas</h2>
+      <button class="cerrar-panel" onclick="toggleHistorial()">✕</button>
+    </div>
 
-<div class="acciones">
-  <div class="fila-botones">
-    <button class="btn-entrada" onclick="marcar('entrada')">Entrada</button>
-    <button class="btn-salida" onclick="marcar('salida')">Salida</button>
+    <div class="filtros-historial">
+      <select id="filtro_empleado">
+        <option value="">Todos los empleados</option>
+        <option value="1">Camilo</option>
+        <option value="2">Ronald</option>
+        <option value="3">Melany</option>
+      </select>
+
+      <input type="date" id="filtro_fecha">
+
+      <button onclick="cargarHistorial()">Consultar historial</button>
+    </div>
+
+    <div id="historial"></div>
   </div>
 
-  <div class="fila-botones">
-    <button class="btn-inicio-comida" onclick="marcar('inicio_comida')">Inicio comida</button>
-    <button class="btn-fin-comida" onclick="marcar('fin_comida')">Fin comida</button>
+  <h2>Registrar</h2>
+
+  <select id="empleado_id">
+    <option value="">Selecciona empleado</option>
+    <option value="1">Camilo</option>
+    <option value="2">Ronald</option>
+    <option value="3">Melany</option>
+  </select>
+
+  <div class="panel-empleado-seleccionado">
+    <h3>Tiempo del empleado seleccionado</h3>
+    <p id="estadoEmpleadoSeleccionado">Estado: sin iniciar</p>
+    <p id="cronometroEmpleado">0h 0m 0s</p>
+    <p id="detalleEmpleadoSeleccionado">
+      Neto: 0h 0m 0s | Comida: 0h 0m 0s | Descanso: 0h 0m 0s
+    </p>
   </div>
 
-  <div class="fila-botones">
-    <button class="btn-inicio-descanso" onclick="marcar('inicio_descanso')">Inicio descanso</button>
-    <button class="btn-fin-descanso" onclick="marcar('fin_descanso')">Fin descanso</button>
+  <div class="acciones">
+    <div class="fila-botones">
+      <button class="btn-entrada" onclick="marcar('entrada')">Entrada</button>
+      <button class="btn-salida" onclick="marcar('salida')">Salida</button>
+    </div>
+
+    <div class="fila-botones">
+      <button class="btn-inicio-comida" onclick="marcar('inicio_comida')">Inicio comida</button>
+      <button class="btn-fin-comida" onclick="marcar('fin_comida')">Fin comida</button>
+    </div>
+
+    <div class="fila-botones">
+      <button class="btn-inicio-descanso" onclick="marcar('inicio_descanso')">Inicio descanso</button>
+      <button class="btn-fin-descanso" onclick="marcar('fin_descanso')">Fin descanso</button>
+    </div>
   </div>
-</div>
 
   <script src="script.js"></script>
-
 </body>
 </html>
