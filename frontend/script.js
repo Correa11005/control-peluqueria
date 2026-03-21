@@ -13,6 +13,8 @@ function cargarHistorial() {
   const fecha = document.getElementById("filtro_fecha").value;
   const contenedor = document.getElementById("historial");
 
+  contenedor.innerHTML = "<p>Cargando historial...</p>";
+
   let url = `${URL}/historial`;
   const params = [];
 
@@ -117,6 +119,8 @@ function cargarResumen() {
       data.forEach(emp => {
         const card = document.createElement("div");
         card.className = "card";
+        const claseEstado = `estado-${emp.estado.replace(/\s+/g, "-")}`;
+        card.classList.add(claseEstado);
 
         const nombre = document.createElement("h3");
         nombre.textContent = emp.nombre;
@@ -228,5 +232,5 @@ function marcar(tipo) {
 
 window.addEventListener("load", () => {
   cargarResumen();
-  setInterval(cargarResumen, 30000);
-});
+;
+}); 

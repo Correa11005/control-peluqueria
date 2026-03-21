@@ -11,7 +11,7 @@
   Consulta Tiempos Laborales
 </button>
 
-<!-- Panel flotante del historial -->
+<!-- Panel flotante del historial --> 
 <div id="panelHistorial" class="panel-historial oculto">
   <div class="panel-historial-header">
     <h2>Historial de jornadas</h2>
@@ -35,39 +35,41 @@
 </div>
 </head>
 <body>
-
+<img src="logo.jpeg" class="logo-salon" />
   <h1>Control de Asistencia</h1>
 
-  <button onclick="cargarResumen()">Actualizar</button>
+<button class="btn-actualizar" onclick="cargarResumen()">Actualizar</button>
 
-  <div id="panel"></div>
+<div id="panel"></div>
 
-  <p id="mensaje"></p>
-  <hr>
+<p id="mensaje"></p>
+<hr>
 
-  <h2>Registrar</h2>
+<h2>Registrar</h2>
 
-  <select id="empleado_id">
-    <option value="">Selecciona empleado</option>
-    <option value="1">Camilo</option>
-    <option value="2">Ronald</option>
-    <option value="3">Melany</option>
-  </select>
+<select id="empleado_id">
+  <option value="">Selecciona empleado</option>
+  <option value="1">Camilo</option>
+  <option value="2">Ronald</option>
+  <option value="3">Melany</option>
+</select>
 
-  <div>
-    <button onclick="marcar('entrada')">Entrada</button>
-    <button onclick="marcar('salida')">Salida</button>
+<div class="acciones">
+  <div class="fila-botones">
+    <button class="btn-entrada" onclick="marcar('entrada')">Entrada</button>
+    <button class="btn-salida" onclick="marcar('salida')">Salida</button>
   </div>
 
-  <div>
-    <button onclick="marcar('inicio_comida')">Inicio comida</button>
-    <button onclick="marcar('fin_comida')">Fin comida</button>
+  <div class="fila-botones">
+    <button class="btn-inicio-comida" onclick="marcar('inicio_comida')">Inicio comida</button>
+    <button class="btn-fin-comida" onclick="marcar('fin_comida')">Fin comida</button>
   </div>
 
-  <div>
-    <button onclick="marcar('inicio_descanso')">Inicio descanso</button>
-    <button onclick="marcar('fin_descanso')">Fin descanso</button>
+  <div class="fila-botones">
+    <button class="btn-inicio-descanso" onclick="marcar('inicio_descanso')">Inicio descanso</button>
+    <button class="btn-fin-descanso" onclick="marcar('fin_descanso')">Fin descanso</button>
   </div>
+</div>
 
   <script src="script.js"></script>
 

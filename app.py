@@ -1,5 +1,6 @@
 import os
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -24,19 +25,18 @@ def aplicar_limite_empleado(nombre, segundos_trabajados, segundos_netos):
         segundos_netos = min(segundos_netos, LIMITE_SEGUNDOS_MELANY)
 
     return segundos_trabajados, segundos_netos
+
 def get_db_connection():
-    url = os.environ.get("MYSQL_PUBLIC_URL")
-
-    urlparse.uses_netloc.append("mysql")
-    parsed = urlparse.urlparse(url)
-
-    return mysql.connector.connect(
-        host=parsed.hostname,
-        port=parsed.port,
-        user=parsed.username,
-        password=parsed.password,
-        database=parsed.path.lstrip("/")
+    conn = mysql.connector.connect(
+        host=os.environ.get("MYSQLHOST"),
+        user=os.environ.get("MYSQLUSER"),
+        password=os.environ.get("MYSQLPASSWORD"),
+        database=os.environ.get("MYSQLDATABASE")
     )
+
+    cursor = conn.cursor()
+    cursor.execute("SET time_zone = 'Europe/Madrid'")
+    return conn
 
 def calcular_reporte_dia(empleado_id, fecha):
     conn = get_db_connection()
@@ -120,10 +120,10 @@ def obtener_ultima_marcacion_hoy(cursor, empleado_id):
     
     return cursor.fetchone()
 
-def calcular_resumen_marcaciones(marcaciones, empleado_id=None):
+def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
     entrada = None
     salida = None
-    inicio_comida = None        
+    inicio_comida = None
     fin_comida = None
     inicio_descanso = None
     fin_descanso = None
@@ -132,38 +132,62 @@ def calcular_resumen_marcaciones(marcaciones, empleado_id=None):
     total_comida = 0
     total_descanso = 0
 
+    inicio_trabajo_actual = None
+    inicio_comida_actual = None
+    inicio_descanso_actual = None
+
     for m in marcaciones:
         tipo = m["tipo"]
         fecha_hora = m["fecha_hora"]
 
-        if tipo == "entrada" and entrada is None:
-            entrada = fecha_hora
-        elif tipo == "salida":
-            salida = fecha_hora
-        elif tipo == "inicio_comida" and inicio_comida is None:
+        if tipo == "entrada":
+            if entrada is None:
+                entrada = fecha_hora
+            inicio_trabajo_actual = fecha_hora
+
+        elif tipo == "inicio_comida":
+            if inicio_trabajo_actual:
+                total_trabajado += int((fecha_hora - inicio_trabajo_actual).total_seconds())
+                inicio_trabajo_actual = None
             inicio_comida = fecha_hora
+            inicio_comida_actual = fecha_hora
+
         elif tipo == "fin_comida":
+            if inicio_comida_actual:
+                total_comida += int((fecha_hora - inicio_comida_actual).total_seconds())
+                inicio_comida_actual = None
             fin_comida = fecha_hora
-        elif tipo == "inicio_descanso" and inicio_descanso is None:
+            inicio_trabajo_actual = fecha_hora
+
+        elif tipo == "inicio_descanso":
+            if inicio_trabajo_actual:
+                total_trabajado += int((fecha_hora - inicio_trabajo_actual).total_seconds())
+                inicio_trabajo_actual = None
             inicio_descanso = fecha_hora
+            inicio_descanso_actual = fecha_hora
+
         elif tipo == "fin_descanso":
+            if inicio_descanso_actual:
+                total_descanso += int((fecha_hora - inicio_descanso_actual).total_seconds())
+                inicio_descanso_actual = None
             fin_descanso = fecha_hora
+            inicio_trabajo_actual = fecha_hora
 
-    if entrada and salida:
-        total_trabajado = int((salida - entrada).total_seconds())
+        elif tipo == "salida":
+            if inicio_trabajo_actual:
+                total_trabajado += int((fecha_hora - inicio_trabajo_actual).total_seconds())
+                inicio_trabajo_actual = None
+            salida = fecha_hora
 
-    if inicio_comida and fin_comida:
-        total_comida = int((fin_comida - inicio_comida).total_seconds())
+    # solo si sigue trabajando en este momento
+    if ahora and inicio_trabajo_actual:
+        extra = int((ahora - inicio_trabajo_actual).total_seconds())
+        if extra > 0:
+            total_trabajado += extra
 
-    if inicio_descanso and fin_descanso:
-        total_descanso = int((fin_descanso - inicio_descanso).total_seconds())
+    # neto = solo tiempo realmente trabajado
+    neto = total_trabajado
 
-    neto = total_trabajado - total_comida - total_descanso
-
-    if neto < 0:
-        neto = 0
-
-    # 🔥 REGLA MELANY (empleado_id = 3)
     if empleado_id == 3:
         limite = 4 * 3600
         total_trabajado = min(total_trabajado, limite)
@@ -181,19 +205,25 @@ def calcular_resumen_marcaciones(marcaciones, empleado_id=None):
         "segundos_descanso": total_descanso,
         "segundos_netos": neto
     }
-@app.route('/historial')
+@app.route("/historial")
 def historial():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    empleado_id = request.args.get('empleado_id')
-    fecha = request.args.get('fecha')
+    empleado_id = request.args.get("empleado_id")
+    fecha = request.args.get("fecha")
 
     query = """
-        SELECT DISTINCT
-            m.empleado_id,
+        SELECT
+            e.id AS empleado_id,
             e.nombre,
-            DATE(m.fecha_hora) AS fecha
+            DATE(m.fecha_hora) AS fecha,
+            MIN(CASE WHEN m.tipo = 'entrada' THEN m.fecha_hora END) AS entrada,
+            MAX(CASE WHEN m.tipo = 'salida' THEN m.fecha_hora END) AS salida,
+            MIN(CASE WHEN m.tipo = 'inicio_comida' THEN m.fecha_hora END) AS inicio_comida,
+            MAX(CASE WHEN m.tipo = 'fin_comida' THEN m.fecha_hora END) AS fin_comida,
+            MIN(CASE WHEN m.tipo = 'inicio_descanso' THEN m.fecha_hora END) AS inicio_descanso,
+            MAX(CASE WHEN m.tipo = 'fin_descanso' THEN m.fecha_hora END) AS fin_descanso
         FROM marcaciones m
         JOIN empleados e ON e.id = m.empleado_id
         WHERE 1=1
@@ -202,41 +232,69 @@ def historial():
     params = []
 
     if empleado_id:
-        query += " AND m.empleado_id = %s"
+        query += " AND e.id = %s"
         params.append(empleado_id)
 
     if fecha:
         query += " AND DATE(m.fecha_hora) = %s"
         params.append(fecha)
 
-    query += " ORDER BY fecha DESC, e.nombre ASC"
+    query += """
+        GROUP BY e.id, e.nombre, DATE(m.fecha_hora)
+        ORDER BY fecha DESC, e.nombre ASC
+    """
 
     cursor.execute(query, params)
-    dias = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
+    filas = cursor.fetchall()
 
     resultado = []
 
-    for dia in dias:
-        reporte = calcular_reporte_dia(dia["empleado_id"], dia["fecha"])
+    for fila in filas:
+        entrada = fila["entrada"]
+        salida = fila["salida"]
+        inicio_comida = fila["inicio_comida"]
+        fin_comida = fila["fin_comida"]
+        inicio_descanso = fila["inicio_descanso"]
+        fin_descanso = fila["fin_descanso"]
+
+        total_trabajado = 0
+        total_comida = 0
+        total_descanso = 0
+
+        if entrada and salida:
+            total_trabajado = int((salida - entrada).total_seconds())
+
+        if inicio_comida and fin_comida:
+            total_comida = int((fin_comida - inicio_comida).total_seconds())
+
+        if inicio_descanso and fin_descanso:
+            total_descanso = int((fin_descanso - inicio_descanso).total_seconds())
+
+        neto = total_trabajado - total_comida - total_descanso
+        if neto < 0:
+            neto = 0
+
+        if fila["empleado_id"] == 3:
+            limite = 4 * 3600
+            total_trabajado = min(total_trabajado, limite)
+            neto = min(neto, limite)
 
         resultado.append({
-            "empleado_id": dia["empleado_id"],
-            "nombre": dia["nombre"],
-            "fecha": str(dia["fecha"]),
-            "entrada": reporte["entrada"],
-            "salida": reporte["salida"],
-            "inicio_comida": reporte["inicio_comida"],
-            "fin_comida": reporte["fin_comida"],
-            "inicio_descanso": reporte["inicio_descanso"],
-            "fin_descanso": reporte["fin_descanso"],
-            "trabajado": formatear_tiempo(reporte["segundos_trabajados"]),
-            "comida": formatear_tiempo(reporte["segundos_comida"]),
-            "descanso": formatear_tiempo(reporte["segundos_descanso"]),
-            "neto": formatear_tiempo(reporte["segundos_netos"])
+            "empleado_id": fila["empleado_id"],
+            "nombre": fila["nombre"],
+            "fecha": str(fila["fecha"]),
+            "entrada": entrada.strftime("%H:%M:%S") if entrada else "-",
+            "salida": salida.strftime("%H:%M:%S") if salida else "-",
+            "inicio_comida": inicio_comida.strftime("%H:%M:%S") if inicio_comida else "-",
+            "fin_comida": fin_comida.strftime("%H:%M:%S") if fin_comida else "-",
+            "inicio_descanso": inicio_descanso.strftime("%H:%M:%S") if inicio_descanso else "-",
+            "fin_descanso": fin_descanso.strftime("%H:%M:%S") if fin_descanso else "-",
+            "trabajado": formatear_tiempo(total_trabajado),
+            "comida": formatear_tiempo(total_comida),
+            "descanso": formatear_tiempo(total_descanso),
+            "neto": formatear_tiempo(neto)
         })
+
 
     return jsonify(resultado)
 
@@ -376,24 +434,24 @@ def resumen_hoy():
     cursor.execute("SELECT id, nombre FROM empleados ORDER BY nombre")
     empleados = cursor.fetchall()
 
-    ahora = datetime.now()
+    ahora = datetime.now(ZoneInfo("Europe/Madrid")).replace(tzinfo=None)
+    hoy = ahora.date()
     respuesta = []
 
     for emp in empleados:
         cursor.execute("""
             SELECT tipo, fecha_hora
             FROM marcaciones
-            WHERE empleado_id = %s AND DATE(fecha_hora) = CURDATE()
+            WHERE empleado_id = %s AND DATE(fecha_hora) = %s
             ORDER BY fecha_hora ASC
-        """, (emp["id"],))
+        """, (emp["id"], hoy))
         marcaciones = cursor.fetchall()
 
-        resumen = calcular_resumen_marcaciones(marcaciones, emp["id"])
+        resumen = calcular_resumen_marcaciones(marcaciones, emp["id"], ahora)
 
         estado = "sin iniciar"
         ultima_marcacion = None
         desde = None
-        segundos_actuales = resumen["segundos_netos"]
 
         if marcaciones:
             ultima = marcaciones[-1]
@@ -402,28 +460,14 @@ def resumen_hoy():
             if ultima["tipo"] in {"entrada", "fin_comida", "fin_descanso"}:
                 estado = "trabajando"
                 desde = ultima["fecha_hora"]
-
-                extra = int((ahora - ultima["fecha_hora"]).total_seconds())
-                if extra < 0:
-                    extra = 0
-
-                segundos_actuales += extra
-
             elif ultima["tipo"] == "inicio_comida":
                 estado = "en comida"
                 desde = ultima["fecha_hora"]
-
             elif ultima["tipo"] == "inicio_descanso":
                 estado = "en descanso"
                 desde = ultima["fecha_hora"]
-
             elif ultima["tipo"] == "salida":
                 estado = "finalizado"
-
-        # límite visual para Melany también en tiempo en vivo
-        if emp["id"] == 3:
-            limite = 4 * 3600
-            segundos_actuales = min(segundos_actuales, limite)
 
         respuesta.append({
             "empleado_id": emp["id"],
@@ -431,13 +475,11 @@ def resumen_hoy():
             "estado": estado,
             "ultima_marcacion": ultima_marcacion,
             "desde": desde,
-            "trabajado": formatear_tiempo(
-                min(resumen["segundos_trabajados"], 4 * 3600) if emp["id"] == 3 else resumen["segundos_trabajados"]
-            ),
+            "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
             "comida": formatear_tiempo(resumen["segundos_comida"]),
             "descanso": formatear_tiempo(resumen["segundos_descanso"]),
-            "neto": formatear_tiempo(segundos_actuales),
-            "segundos_netos": segundos_actuales
+            "neto": formatear_tiempo(resumen["segundos_netos"]),
+            "segundos_netos": resumen["segundos_netos"]
         })
 
     cursor.close()
