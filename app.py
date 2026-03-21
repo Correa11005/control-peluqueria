@@ -301,9 +301,7 @@ def historial():
 
     return jsonify(resultado)
 
-@app.route("/")
-def servir_index():
-    return send_from_directory(os.path.join(os.getcwd(), "frontend"), "index.html")
+
 
 @app.route("/")
 def servir_index():
