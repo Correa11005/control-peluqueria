@@ -1,4 +1,8 @@
-const URL = "http://127.0.0.1:5000";
+const URL =
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "localhost"
+    ? "http://127.0.0.1:5000"
+    : "https://control-peluqueria.onrender.com";
 let timers = {};
 
 function formatear(segundos) {
