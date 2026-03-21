@@ -1,8 +1,11 @@
-let timersResumen = {};
-let timerSeleccionado = null;
-let ultimoResumen = [];
+const EMPLEADOS_FIJOS = [
+  { empleado_id: 1, nombre: "Camilo" },
+  { empleado_id: 2, nombre: "Ronald" },
+  { empleado_id: 3, nombre: "Melany" }
+];
 
 const LIMITE_SEGUNDOS_MELANY = 4 * 3600;
+let timers = {};
 
 function formatear(segundos) {
   segundos = Math.max(0, parseInt(segundos || 0, 10));
@@ -12,21 +15,156 @@ function formatear(segundos) {
   return `${h}h ${m}m ${s}s`;
 }
 
-function limpiarTimersResumen() {
-  Object.values(timersResumen).forEach(clearInterval);
-  timersResumen = {};
-}
-
-function limpiarTimerSeleccionado() {
-  if (timerSeleccionado) {
-    clearInterval(timerSeleccionado);
-    timerSeleccionado = null;
-  }
+function limpiarTimers() {
+  Object.values(timers).forEach(clearInterval);
+  timers = {};
 }
 
 function toggleHistorial() {
   const panel = document.getElementById("panelHistorial");
   panel.classList.toggle("oculto");
+}
+
+function construirBaseTrabajadores(data) {
+  return EMPLEADOS_FIJOS.map(empBase => {
+    const encontrado = data.find(e => parseInt(e.empleado_id, 10) === empBase.empleado_id);
+
+    if (encontrado) {
+      return encontrado;
+    }
+
+    return {
+      empleado_id: empBase.empleado_id,
+      nombre: empBase.nombre,
+      estado: "sin iniciar",
+      neto: "0h 0m 0s",
+      comida: "0h 0m 0s",
+      descanso: "0h 0m 0s",
+      segundos_netos: 0,
+      segundos_comida: 0,
+      segundos_descanso: 0
+    };
+  });
+}
+
+function crearTarjetaEmpleado(emp) {
+  const card = document.createElement("div");
+  card.className = "card-trabajador";
+
+  const estadoClase = `estado-${String(emp.estado || "sin iniciar").replace(/\s+/g, "-")}`;
+  card.classList.add(estadoClase);
+
+  card.innerHTML = `
+    <h3>${emp.nombre}</h3>
+    <p class="estado"><strong>Estado:</strong> <span id="estado-${emp.empleado_id}">${emp.estado}</span></p>
+    <p class="tiempo-principal" id="tiempo-${emp.empleado_id}">${formatear(emp.segundos_netos)}</p>
+    <p><strong>Neto:</strong> <span id="neto-${emp.empleado_id}">${emp.neto}</span></p>
+    <p><strong>Comida:</strong> <span id="comida-${emp.empleado_id}">${emp.comida}</span></p>
+    <p><strong>Descanso:</strong> <span id="descanso-${emp.empleado_id}">${emp.descanso}</span></p>
+  `;
+
+  return card;
+}
+
+function iniciarCronometro(emp) {
+  if (emp.estado !== "trabajando") return;
+
+  let segundos = Math.max(0, parseInt(emp.segundos_netos || 0, 10));
+
+  timers[emp.empleado_id] = setInterval(() => {
+    if (emp.empleado_id === 3 && segundos >= LIMITE_SEGUNDOS_MELANY) {
+      clearInterval(timers[emp.empleado_id]);
+      return;
+    }
+
+    segundos++;
+
+    const tiempoEl = document.getElementById(`tiempo-${emp.empleado_id}`);
+    const netoEl = document.getElementById(`neto-${emp.empleado_id}`);
+
+    if (tiempoEl) tiempoEl.innerText = formatear(segundos);
+    if (netoEl) netoEl.innerText = formatear(segundos);
+  }, 1000);
+}
+
+function renderizarTrabajadores(data) {
+  const panel = document.getElementById("panelTrabajadores");
+  panel.innerHTML = "";
+  limpiarTimers();
+
+  const empleados = construirBaseTrabajadores(data);
+
+  empleados.forEach(emp => {
+    const card = crearTarjetaEmpleado(emp);
+    panel.appendChild(card);
+    iniciarCronometro(emp);
+  });
+}
+
+function cargarResumen() {
+  fetch("/resumen_hoy")
+    .then(async (res) => {
+      if (!res.ok) throw new Error("No se pudo cargar el resumen");
+      return res.json();
+    })
+    .then((data) => {
+      renderizarTrabajadores(data);
+      document.getElementById("mensaje").innerText = "";
+    })
+    .catch((error) => {
+      console.error(error);
+      document.getElementById("mensaje").innerText = "No se pudo cargar el resumen de hoy.";
+    });
+}
+
+function marcar(tipo) {
+  const empleadoSelect = document.getElementById("empleado_id");
+  const empleado_id = empleadoSelect.value;
+  const mensaje = document.getElementById("mensaje");
+
+  if (!empleado_id) {
+    mensaje.innerText = "Selecciona un empleado.";
+    return;
+  }
+
+  mensaje.innerText = "Registrando...";
+
+  fetch("/marcar", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      empleado_id: parseInt(empleado_id, 10),
+      tipo: tipo
+    })
+  })
+    .then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo registrar la marcación");
+      }
+      return data;
+    })
+    .then(() => {
+      const textos = {
+        entrada: "ya está empezando la labor",
+        salida: "ha finalizado la jornada",
+        inicio_comida: "inició su tiempo de comida",
+        fin_comida: "finalizó su tiempo de comida",
+        inicio_descanso: "inició su descanso",
+        fin_descanso: "finalizó su descanso"
+      };
+
+      const nombre = empleadoSelect.options[empleadoSelect.selectedIndex].text;
+      mensaje.innerText = `${nombre} ${textos[tipo]}.`;
+
+      cargarResumen();
+    })
+    .catch((error) => {
+      console.error(error);
+      mensaje.innerText = error.message || "Error de conexión.";
+    });
 }
 
 function cargarHistorial() {
@@ -44,9 +182,7 @@ function cargarHistorial() {
 
   fetch(url)
     .then(async (res) => {
-      if (!res.ok) {
-        throw new Error("No se pudo cargar el historial");
-      }
+      if (!res.ok) throw new Error("No se pudo cargar el historial");
       return res.json();
     })
     .then((data) => {
@@ -104,187 +240,7 @@ function cargarHistorial() {
     });
 }
 
-function iniciarTimerCard(emp, tiempoId) {
-  if (emp.estado !== "trabajando") return;
-
-  let segundos = Math.max(0, parseInt(emp.segundos_netos || 0, 10));
-
-  timersResumen[emp.empleado_id] = setInterval(() => {
-    if (emp.empleado_id === 3 && segundos >= LIMITE_SEGUNDOS_MELANY) {
-      clearInterval(timersResumen[emp.empleado_id]);
-      return;
-    }
-
-    segundos++;
-    const elementoTiempo = document.getElementById(tiempoId);
-    if (elementoTiempo) {
-      elementoTiempo.innerText = formatear(segundos);
-    }
-  }, 1000);
-}
-
-function renderizarCardsResumen(data) {
-  const panel = document.getElementById("panel");
-  panel.innerHTML = "";
-  limpiarTimersResumen();
-
-  data.forEach((emp) => {
-    const card = document.createElement("div");
-    card.className = "card";
-
-    const claseEstado = `estado-${emp.estado.replace(/\s+/g, "-")}`;
-    card.classList.add(claseEstado);
-
-    const nombre = document.createElement("h3");
-    nombre.textContent = emp.nombre;
-
-    const estado = document.createElement("p");
-    estado.innerHTML = `<strong>Estado:</strong> ${emp.estado}`;
-
-    const tiempoId = `tiempo-${emp.empleado_id}`;
-    const tiempo = document.createElement("p");
-    tiempo.className = "tiempo";
-    tiempo.id = tiempoId;
-    tiempo.textContent = formatear(emp.segundos_netos || 0);
-
-    const detalle = document.createElement("p");
-    detalle.innerHTML = `
-      <strong>Neto:</strong> ${emp.neto}<br>
-      <strong>Comida:</strong> ${emp.comida}<br>
-      <strong>Descanso:</strong> ${emp.descanso}
-    `;
-
-    card.appendChild(nombre);
-    card.appendChild(estado);
-    card.appendChild(tiempo);
-    card.appendChild(detalle);
-    panel.appendChild(card);
-
-    iniciarTimerCard(emp, tiempoId);
-  });
-}
-
-function actualizarVistaEmpleadoSeleccionado() {
-  const select = document.getElementById("empleado_id");
-  const estadoEl = document.getElementById("estadoEmpleadoSeleccionado");
-  const cronometroEl = document.getElementById("cronometroEmpleado");
-  const detalleEl = document.getElementById("detalleEmpleadoSeleccionado");
-
-  limpiarTimerSeleccionado();
-
-  if (!select || !select.value) {
-    estadoEl.innerText = "Estado: sin iniciar";
-    cronometroEl.innerText = "0h 0m 0s";
-    detalleEl.innerText = "Neto: 0h 0m 0s | Comida: 0h 0m 0s | Descanso: 0h 0m 0s";
-    return;
-  }
-
-  const empleadoId = parseInt(select.value, 10);
-  const emp = ultimoResumen.find((item) => item.empleado_id === empleadoId);
-
-  if (!emp) {
-    estadoEl.innerText = "Estado: sin datos";
-    cronometroEl.innerText = "0h 0m 0s";
-    detalleEl.innerText = "Neto: 0h 0m 0s | Comida: 0h 0m 0s | Descanso: 0h 0m 0s";
-    return;
-  }
-
-  estadoEl.innerText = `Estado: ${emp.estado}`;
-  cronometroEl.innerText = formatear(emp.segundos_netos || 0);
-  detalleEl.innerText = `Neto: ${emp.neto} | Comida: ${emp.comida} | Descanso: ${emp.descanso}`;
-
-  if (emp.estado === "trabajando") {
-    let segundos = Math.max(0, parseInt(emp.segundos_netos || 0, 10));
-
-    timerSeleccionado = setInterval(() => {
-      if (emp.empleado_id === 3 && segundos >= LIMITE_SEGUNDOS_MELANY) {
-        clearInterval(timerSeleccionado);
-        return;
-      }
-
-      segundos++;
-      cronometroEl.innerText = formatear(segundos);
-    }, 1000);
-  }
-}
-
-function cargarResumen() {
-  fetch("/resumen_hoy")
-    .then(async (res) => {
-      if (!res.ok) {
-        throw new Error("No se pudo cargar el resumen");
-      }
-      return res.json();
-    })
-    .then((data) => {
-      ultimoResumen = data;
-      renderizarCardsResumen(data);
-      actualizarVistaEmpleadoSeleccionado();
-      document.getElementById("mensaje").innerText = "";
-    })
-    .catch((error) => {
-      console.error(error);
-      document.getElementById("mensaje").innerText = "No se pudo cargar el resumen de hoy.";
-    });
-}
-
-function marcar(tipo) {
-  const empleadoSelect = document.getElementById("empleado_id");
-  const empleado_id = empleadoSelect.value;
-  const mensaje = document.getElementById("mensaje");
-
-  if (!empleado_id) {
-    mensaje.innerText = "Selecciona un empleado.";
-    return;
-  }
-
-  mensaje.innerText = "Registrando...";
-
-  fetch("/marcar", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      empleado_id: parseInt(empleado_id, 10),
-      tipo: tipo
-    })
-  })
-    .then(async (res) => {
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "No se pudo registrar la marcación");
-      }
-
-      return data;
-    })
-    .then(() => {
-      const textos = {
-        entrada: "ya está empezando la labor",
-        salida: "ha finalizado la jornada",
-        inicio_comida: "inició su tiempo de comida",
-        fin_comida: "finalizó su tiempo de comida",
-        inicio_descanso: "inició su descanso",
-        fin_descanso: "finalizó su descanso"
-      };
-
-      const nombre = empleadoSelect.options[empleadoSelect.selectedIndex].text;
-      mensaje.innerText = `${nombre} ${textos[tipo]}.`;
-
-      cargarResumen();
-    })
-    .catch((error) => {
-      console.error(error);
-      mensaje.innerText = error.message || "Error de conexión.";
-    });
-}
-
 window.addEventListener("load", () => {
   cargarResumen();
-
-  const selectEmpleado = document.getElementById("empleado_id");
-  if (selectEmpleado) {
-    selectEmpleado.addEventListener("change", actualizarVistaEmpleadoSeleccionado);
-  }
+  setInterval(cargarResumen, 60000);
 });

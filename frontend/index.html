@@ -6,12 +6,13 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <img src="logo.jpeg" class="logo-salon" alt="Logo del salón" />
+  <img src="logo.jpeg" class="logo-salon" alt="Logo del salón">
   <h1>Control de Asistencia</h1>
 
   <button class="btn-actualizar" onclick="cargarResumen()">Actualizar</button>
 
-  <div id="panel"></div>
+  <h2>Estado de trabajadores</h2>
+  <div id="panelTrabajadores" class="panel-trabajadores"></div>
 
   <p id="mensaje"></p>
   <hr>
@@ -35,7 +36,6 @@
       </select>
 
       <input type="date" id="filtro_fecha">
-
       <button onclick="cargarHistorial()">Consultar historial</button>
     </div>
 
@@ -50,15 +50,6 @@
     <option value="2">Ronald</option>
     <option value="3">Melany</option>
   </select>
-
-  <div class="panel-empleado-seleccionado">
-    <h3>Tiempo del empleado seleccionado</h3>
-    <p id="estadoEmpleadoSeleccionado">Estado: sin iniciar</p>
-    <p id="cronometroEmpleado">0h 0m 0s</p>
-    <p id="detalleEmpleadoSeleccionado">
-      Neto: 0h 0m 0s | Comida: 0h 0m 0s | Descanso: 0h 0m 0s
-    </p>
-  </div>
 
   <div class="acciones">
     <div class="fila-botones">
