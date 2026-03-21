@@ -12,6 +12,8 @@ import os
 import mysql.connector
 import urllib.parse as urlparse
 from flask import send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
+import os
 
 LIMITE_SEGUNDOS_MELANY = 4 * 3600
 
@@ -300,8 +302,8 @@ def historial():
     return jsonify(resultado)
 
 @app.route("/")
-def home():
-    return "Servidor funcionando"
+def servir_index():
+    return send_from_directory(os.path.join(os.getcwd(), "frontend"), "index.html")
 
 @app.route("/")
 def servir_index():
@@ -494,7 +496,10 @@ def resumen_hoy():
     conn.close()
 
     return jsonify(respuesta)
-
+@app.route("/<path:path>")
+def servir_archivos_frontend(path):
+    return send_from_directory(os.path.join(os.getcwd(), "frontend"), path)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+    
