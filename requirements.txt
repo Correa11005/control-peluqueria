@@ -1,5 +1,5 @@
-flask
+Flask
 flask-cors
 mysql-connector-python
-gunicorn
-.env
+python-dotenv
+tzdata
