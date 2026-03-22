@@ -1,71 +1,118 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Registro de jornada</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control de Asistencia | Le Rêve</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <img src="logo.jpeg" class="logo-salon" alt="Logo del salón">
-  <h1>Control de Asistencia</h1>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">
+          <img src="logo.png" alt="Logo Le Rêve" onerror="this.style.display='none'; this.parentElement.innerHTML='<span>LE RÊVE</span>';">
+        </div>
+        <div class="brand-text">
+          <p class="eyebrow">Beauty Salon</p>
+          <h1>Control de Asistencia</h1>
+          <p class="subtitle">Registro de jornada y seguimiento diario del personal</p>
+        </div>
+      </div>
 
-  <button class="btn-actualizar" onclick="cargarResumen()">Actualizar</button>
+      <div class="topbar-actions">
+        <button id="btnActualizar" class="btn btn-primary" type="button" onclick="cargarResumen()">
+          Actualizar
+        </button>
+      </div>
+    </header>
 
-  <h2>Estado de trabajadores</h2>
-  <div id="panelTrabajadores" class="panel-trabajadores"></div>
+    <main class="dashboard">
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Estado de trabajadores</h2>
+            <p>Resumen general del día actual</p>
+          </div>
+        </div>
 
-  <p id="mensaje"></p>
-  <hr>
+        <div id="panelTrabajadores" class="workers-grid">
+          <p>Cargando resumen de hoy...</p>
+        </div>
+      </section>
 
-  <button id="btnHistorialFlotante" onclick="toggleHistorial()">
-    Consulta Tiempos Laborales
-  </button>
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Registrar jornada</h2>
+            <p>Selecciona un empleado y registra el movimiento correspondiente</p>
+          </div>
+        </div>
 
-  <div id="panelHistorial" class="panel-historial oculto">
-    <div class="panel-historial-header">
-      <h2>Historial de jornadas</h2>
-      <button class="cerrar-panel" onclick="toggleHistorial()">✕</button>
-    </div>
+        <div class="form-block">
+          <label for="empleado_id" class="field-label">Empleado</label>
+          <select id="empleado_id" class="input-control">
+            <option value="">Selecciona empleado</option>
+            <option value="1">Camilo</option>
+            <option value="2">Ronald</option>
+            <option value="3">Melany</option>
+          </select>
+        </div>
 
-    <div class="filtros-historial">
-      <select id="filtro_empleado">
-        <option value="">Todos los empleados</option>
-        <option value="1">Camilo</option>
-        <option value="2">Ronald</option>
-        <option value="3">Melany</option>
-      </select>
+        <div class="action-grid">
+          <button id="btnEntrada" class="btn btn-success" type="button" onclick="marcar('entrada')">Entrada</button>
+          <button id="btnSalida" class="btn btn-danger" type="button" onclick="marcar('salida')">Salida</button>
 
-      <input type="date" id="filtro_fecha">
-      <button onclick="cargarHistorial()">Consultar historial</button>
-    </div>
+          <button id="btnInicioComida" class="btn btn-neutral" type="button" onclick="marcar('inicio_comida')">Inicio comida</button>
+          <button id="btnFinComida" class="btn btn-neutral" type="button" onclick="marcar('fin_comida')">Fin comida</button>
 
-    <div id="historial"></div>
-  </div>
+          <button id="btnInicioDescanso" class="btn btn-secondary" type="button" onclick="marcar('inicio_descanso')">Inicio descanso</button>
+          <button id="btnFinDescanso" class="btn btn-secondary-dark" type="button" onclick="marcar('fin_descanso')">Fin descanso</button>
+        </div>
 
-  <h2>Registrar</h2>
+        <div id="mensaje" class="status-message" aria-live="polite"></div>
+      </section>
 
-  <select id="empleado_id">
-    <option value="">Selecciona empleado</option>
-    <option value="1">Camilo</option>
-    <option value="2">Ronald</option>
-    <option value="3">Melany</option>
-  </select>
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Historial</h2>
+            <p>Consulta registros por empleado y fecha</p>
+          </div>
 
-  <div class="acciones">
-    <div class="fila-botones">
-      <button class="btn-entrada" onclick="marcar('entrada')">Entrada</button>
-      <button class="btn-salida" onclick="marcar('salida')">Salida</button>
-    </div>
+          <button class="btn btn-primary" type="button" onclick="toggleHistorial()">
+            Mostrar / ocultar
+          </button>
+        </div>
 
-    <div class="fila-botones">
-      <button class="btn-inicio-comida" onclick="marcar('inicio_comida')">Inicio comida</button>
-      <button class="btn-fin-comida" onclick="marcar('fin_comida')">Fin comida</button>
-    </div>
+        <div id="panelHistorial" class="historial-panel oculto">
+          <div class="filters-grid">
+            <div class="form-block">
+              <label for="filtro_empleado" class="field-label">Empleado</label>
+              <select id="filtro_empleado" class="input-control">
+                <option value="">Todos</option>
+                <option value="1">Camilo</option>
+                <option value="2">Ronald</option>
+                <option value="3">Melany</option>
+              </select>
+            </div>
 
-    <div class="fila-botones">
-      <button class="btn-inicio-descanso" onclick="marcar('inicio_descanso')">Inicio descanso</button>
-      <button class="btn-fin-descanso" onclick="marcar('fin_descanso')">Fin descanso</button>
-    </div>
+            <div class="form-block">
+              <label for="filtro_fecha" class="field-label">Fecha</label>
+              <input id="filtro_fecha" class="input-control" type="date" />
+            </div>
+          </div>
+
+          <div class="historial-actions">
+            <button id="btnConsulta" class="btn btn-primary" type="button" onclick="cargarHistorial()">
+              Consulta tiempos laborales
+            </button>
+          </div>
+
+          <div id="historial" class="history-table-wrap"></div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <script src="script.js"></script>
