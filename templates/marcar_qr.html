@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marcación por QR</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <main class="dashboard">
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h1>Marcación por QR</h1>
+            <p>Empleado identificado automáticamente</p>
+          </div>
+        </div>
+
+        <div class="form-block">
+          <label class="field-label">Empleado</label>
+          <input type="text" class="input-control" value="{{ empleado.nombre }}" readonly>
+        </div>
+
+        <div class="form-block">
+          <label for="pin" class="field-label">PIN</label>
+          <input type="password" id="pin" class="input-control" maxlength="4" placeholder="Ingresa tu PIN">
+        </div>
+
+        <input type="hidden" id="token" value="{{ token }}">
+
+        <div class="action-grid">
+          <button class="btn btn-success" type="button" onclick="marcarQr('entrada')">Entrada</button>
+          <button class="btn btn-danger" type="button" onclick="marcarQr('salida')">Salida</button>
+          <button class="btn btn-neutral" type="button" onclick="marcarQr('inicio_comida')">Inicio comida</button>
+          <button class="btn btn-neutral" type="button" onclick="marcarQr('fin_comida')">Fin comida</button>
+          <button class="btn btn-secondary" type="button" onclick="marcarQr('inicio_descanso')">Inicio descanso</button>
+          <button class="btn btn-secondary-dark" type="button" onclick="marcarQr('fin_descanso')">Fin descanso</button>
+        </div>
+
+        <div id="mensaje" class="status-message"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='marcar_qr.js') }}"></script>
+</body>
+</html>

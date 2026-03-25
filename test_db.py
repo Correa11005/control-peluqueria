@@ -1,19 +1,18 @@
+import os
+from dotenv import load_dotenv
 import mysql.connector
 
-conexion = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="",
-    database="peluqueria_control"
-)
+load_dotenv()
 
-cursor = conexion.cursor()
-
-cursor.execute("SELECT * FROM empleados")
-
-resultados = cursor.fetchall()
-
-for fila in resultados:
-    print(fila)
-
-conexion.close()
+try:
+    conn = mysql.connector.connect(
+        host=os.environ.get("MYSQLHOST"),
+        user=os.environ.get("MYSQLUSER"),
+        password=os.environ.get("MYSQLPASSWORD"),
+        database=os.environ.get("MYSQLDATABASE"),
+        port=int(os.environ.get("MYSQLPORT", 3306)),
+    )
+    print("✅ Conexión exitosa")
+    conn.close()
+except Exception as e:
+    print("❌ Error:", e)

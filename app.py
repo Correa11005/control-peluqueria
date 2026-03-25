@@ -1,11 +1,27 @@
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
-
+from services.time_service import aplicar_logica_melany
 import mysql.connector
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
+
+from services.empleado_service import (
+    configurar_qr_y_pin,
+    obtener_empleado_por_token,
+    resetear_intentos_pin,
+    registrar_intento_fallido,
+)
+
+from services.qr_service import (
+    validar_pin,
+    verificar_pin,
+    empleado_bloqueado,
+    calcular_bloqueo,
+    ACCIONES_VALIDAS,
+    generar_imagen_qr,
+)
 
 load_dotenv()
 
@@ -14,7 +30,7 @@ CORS(app)
 
 LIMITE_SEGUNDOS_MELANY = 4 * 3600
 TZ_APP = "Europe/Madrid"
-FRONTEND_DIR = os.path.join(os.getcwd(), "frontend")
+
 
 
 def get_db_connection():
@@ -57,13 +73,6 @@ def obtener_ultima_marcacion_hoy(cursor, empleado_id, fecha=None):
         (empleado_id, fecha),
     )
     return cursor.fetchone()
-
-
-def aplicar_limite_melany(empleado_id, segundos):
-    if empleado_id == 3:
-        return min(segundos, LIMITE_SEGUNDOS_MELANY)
-    return segundos
-
 
 def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
     entrada = None
@@ -134,10 +143,12 @@ def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
     total_trabajado = max(0, total_trabajado)
     total_comida = max(0, total_comida)
     total_descanso = max(0, total_descanso)
-    total_trabajado = aplicar_limite_melany(empleado_id, total_trabajado)
 
-    neto = total_trabajado
-    neto = aplicar_limite_melany(empleado_id, neto)
+    segundos_trabajados_reales = total_trabajado
+    segundos_netos_reales = max(0, segundos_trabajados_reales - total_comida - total_descanso)
+
+    segundos_trabajados_mostrados = aplicar_logica_melany(empleado_id, segundos_trabajados_reales)
+    segundos_netos_mostrados = aplicar_logica_melany(empleado_id, segundos_netos_reales)
 
     return {
         "entrada": entrada,
@@ -146,12 +157,40 @@ def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
         "fin_comida": fin_comida,
         "inicio_descanso": inicio_descanso,
         "fin_descanso": fin_descanso,
-        "segundos_trabajados": total_trabajado,
+
+        "segundos_trabajados_reales": segundos_trabajados_reales,
         "segundos_comida": total_comida,
         "segundos_descanso": total_descanso,
-        "segundos_netos": neto,
+        "segundos_netos_reales": segundos_netos_reales,
+
+        "segundos_trabajados": segundos_trabajados_mostrados,
+        "segundos_netos": segundos_netos_mostrados,
     }
 
+@app.route("/configurar_qr/<int:empleado_id>", methods=["POST"])
+def configurar_qr(empleado_id):
+    data = request.get_json(silent=True) or {}
+    pin = data.get("pin")
+
+    if not pin:
+        return jsonify({"error": "PIN requerido"}), 400
+
+    conn = get_db_connection()
+    try:
+        token = configurar_qr_y_pin(conn, empleado_id, pin)
+
+        base_url = os.environ.get("BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+        url_qr = f"{base_url}/marcar?token={token}"
+        ruta_qr = generar_imagen_qr(url_qr, f"empleado_{empleado_id}")
+
+        return jsonify({
+            "mensaje": "QR configurado correctamente",
+            "token": token,
+            "url": url_qr,
+            "qr_imagen": ruta_qr
+        })
+    finally:
+        conn.close()
 
 @app.route("/empleados")
 def empleados():
@@ -166,6 +205,107 @@ def empleados():
 
     return jsonify(result)
 
+@app.route("/marcar", methods=["GET"])
+def vista_marcar_qr():
+    token = request.args.get("token", "").strip()
+
+    if not token:
+        return "Token no proporcionado", 400
+
+    conn = get_db_connection()
+    try:
+        empleado = obtener_empleado_por_token(conn, token)
+
+        if not empleado or not empleado["activo"]:
+            return "Empleado no encontrado o inactivo", 404
+
+        return render_template(
+            "marcar_qr.html",
+            empleado=empleado,
+            token=token
+        )
+    finally:
+        conn.close()
+@app.route("/api/marcar_qr", methods=["POST"])
+def api_marcar_qr():
+    data = request.get_json(silent=True) or {}
+
+    token = (data.get("token") or "").strip()
+    pin = (data.get("pin") or "").strip()
+    tipo = (data.get("tipo") or "").strip()
+
+    if not token:
+        return jsonify({"error": "Token requerido"}), 400
+
+    if tipo not in ACCIONES_VALIDAS:
+        return jsonify({"error": "Tipo de marcación inválido"}), 400
+
+    if not validar_pin(pin):
+        return jsonify({"error": "PIN inválido. Debe tener 4 dígitos."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        empleado = obtener_empleado_por_token(conn, token)
+
+        if not empleado or not empleado["activo"]:
+            return jsonify({"error": "Empleado no válido o inactivo"}), 404
+
+        if empleado_bloqueado(empleado["bloqueado_hasta"]):
+            return jsonify({"error": "Empleado bloqueado temporalmente por intentos fallidos"}), 403
+
+        if not verificar_pin(pin, empleado["pin_hash"]):
+            nuevos_intentos = (empleado["pin_intentos_fallidos"] or 0) + 1
+            bloqueo = calcular_bloqueo(nuevos_intentos)
+            registrar_intento_fallido(conn, empleado["id"], nuevos_intentos, bloqueo)
+            return jsonify({"error": "PIN incorrecto"}), 401
+
+        resetear_intentos_pin(conn, empleado["id"])
+
+        hoy = datetime.now(ZoneInfo(TZ_APP)).date()
+        ultima = obtener_ultima_marcacion_hoy(cursor, empleado["id"], hoy)
+        ultimo_tipo = ultima["tipo"] if ultima else None
+
+        if tipo == "entrada":
+            if ultimo_tipo in {"entrada", "fin_comida", "fin_descanso"}:
+                return jsonify({"error": "No se puede registrar otra entrada ahora"}), 400
+
+        elif tipo == "salida":
+            if ultimo_tipo not in {"entrada", "fin_comida", "fin_descanso"}:
+                return jsonify({"error": "No se puede registrar salida sin haber entrado o reanudado"}), 400
+
+        elif tipo == "inicio_comida":
+            if ultimo_tipo not in {"entrada", "fin_descanso"}:
+                return jsonify({"error": "No se puede iniciar comida en este momento"}), 400
+
+        elif tipo == "fin_comida":
+            if ultimo_tipo != "inicio_comida":
+                return jsonify({"error": "No se puede finalizar comida sin haberla iniciado"}), 400
+
+        elif tipo == "inicio_descanso":
+            if ultimo_tipo not in {"entrada", "fin_comida"}:
+                return jsonify({"error": "No se puede iniciar descanso en este momento"}), 400
+
+        elif tipo == "fin_descanso":
+            if ultimo_tipo != "inicio_descanso":
+                return jsonify({"error": "No se puede finalizar descanso sin haberlo iniciado"}), 400
+
+        cursor.execute(
+            "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, NOW())",
+            (empleado["id"], tipo),
+        )
+        conn.commit()
+
+        return jsonify({
+            "ok": True,
+            "mensaje": f"Marcación registrada: {tipo}",
+            "empleado": empleado["nombre"]
+        })
+
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route("/marcar", methods=["POST"])
 def marcar():
@@ -331,23 +471,27 @@ def resumen_hoy():
                 estado = "finalizado"
 
         respuesta.append(
-            {
-                "empleado_id": emp["id"],
-                "nombre": emp["nombre"],
-                "estado": estado,
-                "ultima_marcacion": ultima_marcacion,
-                "desde": desde,
-                "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
-                "comida": formatear_tiempo(resumen["segundos_comida"]),
-                "descanso": formatear_tiempo(resumen["segundos_descanso"]),
-                "neto": formatear_tiempo(resumen["segundos_netos"]),
-                "segundos_trabajados": resumen["segundos_trabajados"],
-                "segundos_comida": resumen["segundos_comida"],
-                "segundos_descanso": resumen["segundos_descanso"],
-                "segundos_netos": resumen["segundos_netos"],
-            }
-        )
+    {
+        "empleado_id": emp["id"],
+        "nombre": emp["nombre"],
+        "estado": estado,
+        "ultima_marcacion": ultima_marcacion,
+        "desde": desde,
 
+        "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
+        "comida": formatear_tiempo(resumen["segundos_comida"]),
+        "descanso": formatear_tiempo(resumen["segundos_descanso"]),
+        "neto": formatear_tiempo(resumen["segundos_netos"]),
+
+        "segundos_trabajados": resumen["segundos_trabajados"],
+        "segundos_comida": resumen["segundos_comida"],
+        "segundos_descanso": resumen["segundos_descanso"],
+        "segundos_netos": resumen["segundos_netos"],
+
+        "segundos_trabajados_reales": resumen["segundos_trabajados_reales"],
+        "segundos_netos_reales": resumen["segundos_netos_reales"],
+    }
+)
     cursor.close()
     conn.close()
 
@@ -449,16 +593,7 @@ def historial():
 
 @app.route("/")
 def servir_index():
-    return send_from_directory(FRONTEND_DIR, "index.html")
-
-
-@app.route("/<path:path>")
-def servir_frontend(path):
-    ruta = os.path.join(FRONTEND_DIR, path)
-    if os.path.isfile(ruta):
-        return send_from_directory(FRONTEND_DIR, path)
-    return jsonify({"error": "Recurso no encontrado"}), 404
-
+    return render_template ("index.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
