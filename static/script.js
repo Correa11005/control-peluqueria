@@ -66,24 +66,53 @@ function crearTarjetaEmpleado(emp) {
   return card;
 }
 
+function aplicarLogicaMelany(segundosReales) {
+  segundosReales = Math.max(0, parseInt(segundosReales || 0, 10));
+
+  if (segundosReales < 4 * 3600) {
+    return segundosReales;
+  }
+
+  return 3 * 3600 + ((segundosReales - 4 * 3600) % 3600);
+}
+
 function iniciarCronometro(emp) {
   if (emp.estado !== "trabajando") return;
 
-  let segundos = Math.max(0, parseInt(emp.segundos_netos || 0, 10));
+  const empleadoId = emp.empleado_id;
 
-  timers[emp.empleado_id] = setInterval(() => {
-    if (emp.empleado_id === 3 && segundos >= LIMITE_SEGUNDOS_MELANY) {
-      clearInterval(timers[emp.empleado_id]);
-      return;
+  // Evita timers duplicados
+  if (timers[empleadoId]) {
+    clearInterval(timers[empleadoId]);
+  }
+
+  let trabajadoReal = Math.max(
+    0,
+    parseInt(emp.segundos_trabajados_reales ?? emp.segundos_trabajados ?? 0, 10)
+  );
+
+  let netoReal = Math.max(
+    0,
+    parseInt(emp.segundos_netos_reales ?? emp.segundos_netos ?? 0, 10)
+  );
+
+  timers[empleadoId] = setInterval(() => {
+    trabajadoReal++;
+    netoReal++;
+
+    let trabajadoMostrado = trabajadoReal;
+    let netoMostrado = netoReal;
+
+    if (empleadoId === 3) {
+      trabajadoMostrado = aplicarLogicaMelany(trabajadoReal);
+      netoMostrado = aplicarLogicaMelany(netoReal);
     }
 
-    segundos++;
+    const tiempoEl = document.getElementById(`tiempo-${empleadoId}`);
+    const netoEl = document.getElementById(`neto-${empleadoId}`);
 
-    const tiempoEl = document.getElementById(`tiempo-${emp.empleado_id}`);
-    const netoEl = document.getElementById(`neto-${emp.empleado_id}`);
-
-    if (tiempoEl) tiempoEl.innerText = formatear(segundos);
-    if (netoEl) netoEl.innerText = formatear(segundos);
+    if (tiempoEl) tiempoEl.innerText = formatear(trabajadoMostrado);
+    if (netoEl) netoEl.innerText = formatear(netoMostrado);
   }, 1000);
 }
 
