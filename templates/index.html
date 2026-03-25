@@ -28,50 +28,14 @@
     </header>
 
     <main class="dashboard">
-      <section class="card">
-        <div class="section-head">
-          <div>
-            <h2>Estado de trabajadores</h2>
-            <p>Resumen general del día actual</p>
-          </div>
-        </div>
-
-        <div id="panelTrabajadores" class="workers-grid">
-          <p>Cargando resumen de hoy...</p>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="section-head">
-          <div>
-            <h2>Registrar jornada</h2>
-            <p>Selecciona un empleado y registra el movimiento correspondiente</p>
-          </div>
-        </div>
-
-        <div class="form-block">
-          <label for="empleado_id" class="field-label">Empleado</label>
-          <select id="empleado_id" class="input-control">
-            <option value="">Selecciona empleado</option>
-            <option value="1">Camilo</option>
-            <option value="2">Ronald</option>
-            <option value="3">Melany</option>
-          </select>
-        </div>
-
-        <div class="action-grid">
-          <button id="btnEntrada" class="btn btn-success" type="button" onclick="marcar('entrada')">Entrada</button>
-          <button id="btnSalida" class="btn btn-danger" type="button" onclick="marcar('salida')">Salida</button>
-
-          <button id="btnInicioComida" class="btn btn-neutral" type="button" onclick="marcar('inicio_comida')">Inicio comida</button>
-          <button id="btnFinComida" class="btn btn-neutral" type="button" onclick="marcar('fin_comida')">Fin comida</button>
-
-          <button id="btnInicioDescanso" class="btn btn-secondary" type="button" onclick="marcar('inicio_descanso')">Inicio descanso</button>
-          <button id="btnFinDescanso" class="btn btn-secondary-dark" type="button" onclick="marcar('fin_descanso')">Fin descanso</button>
-        </div>
-
-        <div id="mensaje" class="status-message" aria-live="polite"></div>
-      </section>
+<section class="card">
+  <div class="section-head">
+    <div>
+      <h2>Marcación por QR</h2>
+      <p>Los empleados registran su jornada escaneando su código QR personal</p>
+    </div>
+  </div>
+</section>
 
       <section class="card">
         <div class="section-head">

@@ -543,47 +543,45 @@ def historial():
     resultado = []
 
     for fila in filas:
-        entrada = fila["entrada"]
-        salida = fila["salida"]
-        inicio_comida = fila["inicio_comida"]
-        fin_comida = fila["fin_comida"]
-        inicio_descanso = fila["inicio_descanso"]
-        fin_descanso = fila["fin_descanso"]
+       entrada = fila["entrada"]
+       salida = fila["salida"]
+       inicio_comida = fila["inicio_comida"]
+       fin_comida = fila["fin_comida"]
+       inicio_descanso = fila["inicio_descanso"]
+       fin_descanso = fila["fin_descanso"]
 
-        total_trabajado = 0
-        total_comida = 0
-        total_descanso = 0
+    total_trabajado = 0
+    total_comida = 0
+    total_descanso = 0
 
-        if entrada and salida:
-            total_trabajado = int((salida - entrada).total_seconds())
+    if entrada and salida:
+        total_trabajado = int((salida - entrada).total_seconds())
 
-        if inicio_comida and fin_comida:
-            total_comida = int((fin_comida - inicio_comida).total_seconds())
+    if inicio_comida and fin_comida:
+        total_comida = int((fin_comida - inicio_comida).total_seconds())
 
-        if inicio_descanso and fin_descanso:
-            total_descanso = int((fin_descanso - inicio_descanso).total_seconds())
+    if inicio_descanso and fin_descanso:
+        total_descanso = int((fin_descanso - inicio_descanso).total_seconds())
 
-        total_trabajado = aplicar_limite_melany(fila["empleado_id"], total_trabajado)
-        neto = max(0, total_trabajado - total_comida - total_descanso)
-        neto = aplicar_limite_melany(fila["empleado_id"], neto)
+    neto = max(0, total_trabajado - total_comida - total_descanso)
 
-        resultado.append(
-            {
-                "empleado_id": fila["empleado_id"],
-                "nombre": fila["nombre"],
-                "fecha": str(fila["fecha"]),
-                "entrada": entrada.strftime("%H:%M:%S") if entrada else "-",
-                "salida": salida.strftime("%H:%M:%S") if salida else "-",
-                "inicio_comida": inicio_comida.strftime("%H:%M:%S") if inicio_comida else "-",
-                "fin_comida": fin_comida.strftime("%H:%M:%S") if fin_comida else "-",
-                "inicio_descanso": inicio_descanso.strftime("%H:%M:%S") if inicio_descanso else "-",
-                "fin_descanso": fin_descanso.strftime("%H:%M:%S") if fin_descanso else "-",
-                "trabajado": formatear_tiempo(total_trabajado),
-                "comida": formatear_tiempo(total_comida),
-                "descanso": formatear_tiempo(total_descanso),
-                "neto": formatear_tiempo(neto),
-            }
-        )
+    resultado.append(
+        {
+            "empleado_id": fila["empleado_id"],
+            "nombre": fila["nombre"],
+            "fecha": str(fila["fecha"]),
+            "entrada": entrada.strftime("%H:%M:%S") if entrada else "-",
+            "salida": salida.strftime("%H:%M:%S") if salida else "-",
+            "inicio_comida": inicio_comida.strftime("%H:%M:%S") if inicio_comida else "-",
+            "fin_comida": fin_comida.strftime("%H:%M:%S") if fin_comida else "-",
+            "inicio_descanso": inicio_descanso.strftime("%H:%M:%S") if inicio_descanso else "-",
+            "fin_descanso": fin_descanso.strftime("%H:%M:%S") if fin_descanso else "-",
+            "trabajado": formatear_tiempo(total_trabajado),
+            "comida": formatear_tiempo(total_comida),
+            "descanso": formatear_tiempo(total_descanso),
+            "neto": formatear_tiempo(neto),
+        }
+    )
 
     cursor.close()
     conn.close()
