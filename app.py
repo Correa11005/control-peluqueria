@@ -136,21 +136,20 @@ def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
             salida = fecha_hora
 
     if ahora and inicio_trabajo_actual:
-     extra = int((ahora - inicio_trabajo_actual).total_seconds())
-    if extra > 0:
-        total_trabajado += extra
+        extra_trabajo = int((ahora - inicio_trabajo_actual).total_seconds())
+        if extra_trabajo > 0:
+           total_trabajado += extra_trabajo
 
     if ahora and inicio_comida_actual:
-     extra = int((ahora - inicio_comida_actual).total_seconds())
-    if extra > 0:
-        total_comida += extra
+        extra_comida = int((ahora - inicio_comida_actual).total_seconds())
+        if extra_comida > 0:
+           total_comida += extra_comida
 
     if ahora and inicio_descanso_actual:
-     extra = int((ahora - inicio_descanso_actual).total_seconds())
-    if extra > 0:
-        total_descanso += extra
-        total_trabajado += extra
-
+       extra_descanso = int((ahora - inicio_descanso_actual).total_seconds())
+       if extra_descanso > 0:
+        total_descanso += extra_descanso
+        
     total_trabajado = max(0, total_trabajado)
     total_comida = max(0, total_comida)
     total_descanso = max(0, total_descanso)
