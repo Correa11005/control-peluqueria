@@ -138,18 +138,18 @@ def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
     if ahora and inicio_trabajo_actual:
         extra_trabajo = int((ahora - inicio_trabajo_actual).total_seconds())
         if extra_trabajo > 0:
-           total_trabajado += extra_trabajo
+            total_trabajado += extra_trabajo
 
     if ahora and inicio_comida_actual:
         extra_comida = int((ahora - inicio_comida_actual).total_seconds())
         if extra_comida > 0:
-           total_comida += extra_comida
+            total_comida += extra_comida
 
     if ahora and inicio_descanso_actual:
-       extra_descanso = int((ahora - inicio_descanso_actual).total_seconds())
-       if extra_descanso > 0:
-        total_descanso += extra_descanso
-        
+        extra_descanso = int((ahora - inicio_descanso_actual).total_seconds())
+        if extra_descanso > 0:
+            total_descanso += extra_descanso
+
     total_trabajado = max(0, total_trabajado)
     total_comida = max(0, total_comida)
     total_descanso = max(0, total_descanso)
@@ -167,12 +167,10 @@ def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
         "fin_comida": fin_comida,
         "inicio_descanso": inicio_descanso,
         "fin_descanso": fin_descanso,
-
         "segundos_trabajados_reales": segundos_trabajados_reales,
         "segundos_comida": total_comida,
         "segundos_descanso": total_descanso,
         "segundos_netos_reales": segundos_netos_reales,
-
         "segundos_trabajados": segundos_trabajados_mostrados,
         "segundos_netos": segundos_netos_mostrados,
     }
