@@ -4,30 +4,37 @@ const EMPLEADOS_FIJOS = [
   { empleado_id: 3, nombre: "Melany" }
 ];
 
+const timers = {};
 const LIMITE_SEGUNDOS_MELANY = 4 * 3600;
-let timers = {};
 
 function formatear(segundos) {
   segundos = Math.max(0, parseInt(segundos || 0, 10));
-  const h = Math.floor(segundos / 3600);
-  const m = Math.floor((segundos % 3600) / 60);
-  const s = segundos % 60;
-  return `${h}h ${m}m ${s}s`;
+  const horas = Math.floor(segundos / 3600);
+  const minutos = Math.floor((segundos % 3600) / 60);
+  const segs = segundos % 60;
+  return `${horas}h ${minutos}m ${segs}s`;
+}
+
+function aplicarLogicaMelany(segundosReales) {
+  segundosReales = Math.max(0, parseInt(segundosReales || 0, 10));
+
+  if (segundosReales < LIMITE_SEGUNDOS_MELANY) {
+    return segundosReales;
+  }
+
+  return 3 * 3600 + ((segundosReales - LIMITE_SEGUNDOS_MELANY) % 3600);
 }
 
 function limpiarTimers() {
-  Object.values(timers).forEach(clearInterval);
-  timers = {};
-}
-
-function toggleHistorial() {
-  const panel = document.getElementById("panelHistorial");
-  panel.classList.toggle("oculto");
+  Object.values(timers).forEach((timer) => clearInterval(timer));
+  Object.keys(timers).forEach((key) => delete timers[key]);
 }
 
 function construirBaseTrabajadores(data) {
-  return EMPLEADOS_FIJOS.map(empBase => {
-    const encontrado = data.find(e => parseInt(e.empleado_id, 10) === empBase.empleado_id);
+  return EMPLEADOS_FIJOS.map((empBase) => {
+    const encontrado = data.find(
+      (e) => parseInt(e.empleado_id, 10) === empBase.empleado_id
+    );
 
     if (encontrado) {
       return encontrado;
@@ -37,10 +44,14 @@ function construirBaseTrabajadores(data) {
       empleado_id: empBase.empleado_id,
       nombre: empBase.nombre,
       estado: "sin iniciar",
+      trabajado: "0h 0m 0s",
       neto: "0h 0m 0s",
       comida: "0h 0m 0s",
       descanso: "0h 0m 0s",
+      segundos_trabajados: 0,
+      segundos_trabajados_reales: 0,
       segundos_netos: 0,
+      segundos_netos_reales: 0,
       segundos_comida: 0,
       segundos_descanso: 0
     };
@@ -54,34 +65,26 @@ function crearTarjetaEmpleado(emp) {
   const estadoClase = `estado-${String(emp.estado || "sin iniciar").replace(/\s+/g, "-")}`;
   card.classList.add(estadoClase);
 
+  const tiempoPrincipal = emp.trabajado || formatear(emp.segundos_trabajados || 0);
+
   card.innerHTML = `
     <h3>${emp.nombre}</h3>
     <p class="estado"><strong>Estado:</strong> <span id="estado-${emp.empleado_id}">${emp.estado}</span></p>
-    <p class="tiempo-principal" id="tiempo-${emp.empleado_id}">${formatear(emp.segundos_netos)}</p>
-    <p><strong>Neto:</strong> <span id="neto-${emp.empleado_id}">${emp.neto}</span></p>
-    <p><strong>Comida:</strong> <span id="comida-${emp.empleado_id}">${emp.comida}</span></p>
-    <p><strong>Descanso:</strong> <span id="descanso-${emp.empleado_id}">${emp.descanso}</span></p>
+    <p class="tiempo-principal" id="tiempo-${emp.empleado_id}">${tiempoPrincipal}</p>
+    <p><strong>Neto:</strong> <span id="neto-${emp.empleado_id}">${emp.neto || "0h 0m 0s"}</span></p>
+    <p><strong>Comida:</strong> <span id="comida-${emp.empleado_id}">${emp.comida || "0h 0m 0s"}</span></p>
+    <p><strong>Descanso:</strong> <span id="descanso-${emp.empleado_id}">${emp.descanso || "0h 0m 0s"}</span></p>
   `;
 
   return card;
 }
 
-function aplicarLogicaMelany(segundosReales) {
-  segundosReales = Math.max(0, parseInt(segundosReales || 0, 10));
-
-  if (segundosReales < 4 * 3600) {
-    return segundosReales;
-  }
-
-  return 3 * 3600 + ((segundosReales - 4 * 3600) % 3600);
-}
-
 function iniciarCronometro(emp) {
-  if (emp.estado !== "trabajando") return;
-
   const empleadoId = emp.empleado_id;
+  const estado = emp.estado;
 
-  // Evita timers duplicados
+  if (!["trabajando", "en comida", "en descanso"].includes(estado)) return;
+
   if (timers[empleadoId]) {
     clearInterval(timers[empleadoId]);
   }
@@ -96,9 +99,25 @@ function iniciarCronometro(emp) {
     parseInt(emp.segundos_netos_reales ?? emp.segundos_netos ?? 0, 10)
   );
 
+  let comida = Math.max(
+    0,
+    parseInt(emp.segundos_comida ?? 0, 10)
+  );
+
+  let descanso = Math.max(
+    0,
+    parseInt(emp.segundos_descanso ?? 0, 10)
+  );
+
   timers[empleadoId] = setInterval(() => {
-    trabajadoReal++;
-    netoReal++;
+    if (estado === "trabajando") {
+      trabajadoReal++;
+      netoReal++;
+    } else if (estado === "en comida") {
+      comida++;
+    } else if (estado === "en descanso") {
+      descanso++;
+    }
 
     let trabajadoMostrado = trabajadoReal;
     let netoMostrado = netoReal;
@@ -110,22 +129,28 @@ function iniciarCronometro(emp) {
 
     const tiempoEl = document.getElementById(`tiempo-${empleadoId}`);
     const netoEl = document.getElementById(`neto-${empleadoId}`);
+    const comidaEl = document.getElementById(`comida-${empleadoId}`);
+    const descansoEl = document.getElementById(`descanso-${empleadoId}`);
 
     if (tiempoEl) tiempoEl.innerText = formatear(trabajadoMostrado);
     if (netoEl) netoEl.innerText = formatear(netoMostrado);
+    if (comidaEl) comidaEl.innerText = formatear(comida);
+    if (descansoEl) descansoEl.innerText = formatear(descanso);
   }, 1000);
 }
 
 function renderizarTrabajadores(data) {
   const panel = document.getElementById("panelTrabajadores");
-  panel.innerHTML = "";
+  if (!panel) return;
+
   limpiarTimers();
+  panel.innerHTML = "";
 
   const empleados = construirBaseTrabajadores(data);
 
-  empleados.forEach(emp => {
-    const card = crearTarjetaEmpleado(emp);
-    panel.appendChild(card);
+  empleados.forEach((emp) => {
+    const tarjeta = crearTarjetaEmpleado(emp);
+    panel.appendChild(tarjeta);
     iniciarCronometro(emp);
   });
 }
@@ -138,62 +163,20 @@ function cargarResumen() {
     })
     .then((data) => {
       renderizarTrabajadores(data);
-      document.getElementById("mensaje").innerText = "";
     })
     .catch((error) => {
       console.error(error);
-      document.getElementById("mensaje").innerText = "No se pudo cargar el resumen de hoy.";
+      const panel = document.getElementById("panelTrabajadores");
+      if (panel) {
+        panel.innerHTML = "<p>No se pudo cargar el resumen de hoy.</p>";
+      }
     });
 }
 
-function marcar(tipo) {
-  const empleadoSelect = document.getElementById("empleado_id");
-  const empleado_id = empleadoSelect.value;
-  const mensaje = document.getElementById("mensaje");
-
-  if (!empleado_id) {
-    mensaje.innerText = "Selecciona un empleado.";
-    return;
-  }
-
-  mensaje.innerText = "Registrando...";
-
-  fetch("/marcar", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      empleado_id: parseInt(empleado_id, 10),
-      tipo: tipo
-    })
-  })
-    .then(async (res) => {
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "No se pudo registrar la marcación");
-      }
-      return data;
-    })
-    .then(() => {
-      const textos = {
-        entrada: "ya está empezando la labor",
-        salida: "ha finalizado la jornada",
-        inicio_comida: "inició su tiempo de comida",
-        fin_comida: "finalizó su tiempo de comida",
-        inicio_descanso: "inició su descanso",
-        fin_descanso: "finalizó su descanso"
-      };
-
-      const nombre = empleadoSelect.options[empleadoSelect.selectedIndex].text;
-      mensaje.innerText = `${nombre} ${textos[tipo]}.`;
-
-      cargarResumen();
-    })
-    .catch((error) => {
-      console.error(error);
-      mensaje.innerText = error.message || "Error de conexión.";
-    });
+function toggleHistorial() {
+  const panel = document.getElementById("panelHistorial");
+  if (!panel) return;
+  panel.classList.toggle("oculto");
 }
 
 function cargarHistorial() {
@@ -211,7 +194,10 @@ function cargarHistorial() {
 
   fetch(url)
     .then(async (res) => {
-      if (!res.ok) throw new Error("No se pudo cargar el historial");
+      if (!res.ok) {
+        const texto = await res.text();
+        throw new Error(`No se pudo cargar el historial (${res.status}) ${texto}`);
+      }
       return res.json();
     })
     .then((data) => {
@@ -264,12 +250,11 @@ function cargarHistorial() {
       contenedor.innerHTML = html;
     })
     .catch((error) => {
-      console.error(error);
+      console.error("Error al cargar historial:", error);
       contenedor.innerHTML = `<p>${error.message}</p>`;
     });
 }
 
-window.addEventListener("load", () => {
+document.addEventListener("DOMContentLoaded", () => {
   cargarResumen();
-  setInterval(cargarResumen, 60000);
 });
