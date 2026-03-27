@@ -5,6 +5,66 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Marcación por QR</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .qr-resumen-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 20px 0 24px;
+    }
+
+    .qr-mini-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 16px;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .qr-mini-card--full {
+      grid-column: 1 / -1;
+      min-height: 90px;
+    }
+
+    .qr-mini-title {
+      font-size: 14px;
+      opacity: 0.8;
+      margin-bottom: 10px;
+    }
+
+    .qr-mini-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.1;
+      word-break: break-word;
+    }
+
+    .qr-mini-value.estado {
+      font-size: 24px;
+      text-transform: capitalize;
+    }
+
+    @media (max-width: 640px) {
+      .qr-resumen-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .qr-mini-card--full {
+        grid-column: auto;
+      }
+
+      .qr-mini-value {
+        font-size: 24px;
+      }
+
+      .qr-mini-value.estado {
+        font-size: 22px;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -22,38 +82,40 @@
           <input type="text" class="input-control" value="{{ empleado.nombre }}" readonly>
         </div>
 
-        <div class="form-block">
-          <label class="field-label">Estado actual</label>
-          <div id="estado-qr" class="status-message">
-            {{ resumen_qr.estado if resumen_qr else 'sin iniciar' }}
+        <div class="qr-resumen-grid">
+          <div class="qr-mini-card qr-mini-card--full">
+            <div class="qr-mini-title">Estado actual</div>
+            <div id="estado-qr" class="qr-mini-value estado">
+              {{ resumen_qr.estado if resumen_qr else 'sin iniciar' }}
+            </div>
           </div>
-        </div>
 
-        <div class="form-block">
-          <label class="field-label">Tiempo trabajado hoy</label>
-          <div id="tiempo-qr" class="status-message">
-            {{ resumen_qr.trabajado if resumen_qr else '0h 0m 0s' }}
+          <div class="qr-mini-card">
+            <div class="qr-mini-title">Trabajado hoy</div>
+            <div id="tiempo-qr" class="qr-mini-value">
+              {{ resumen_qr.trabajado if resumen_qr else '0h 0m 0s' }}
+            </div>
           </div>
-        </div>
 
-        <div class="form-block">
-          <label class="field-label">Tiempo neto</label>
-          <div id="neto-qr" class="status-message">
-            {{ resumen_qr.neto if resumen_qr else '0h 0m 0s' }}
+          <div class="qr-mini-card">
+            <div class="qr-mini-title">Tiempo neto</div>
+            <div id="neto-qr" class="qr-mini-value">
+              {{ resumen_qr.neto if resumen_qr else '0h 0m 0s' }}
+            </div>
           </div>
-        </div>
 
-        <div class="form-block">
-          <label class="field-label">Tiempo en comida</label>
-          <div id="comida-qr" class="status-message">
-            {{ resumen_qr.comida if resumen_qr else '0h 0m 0s' }}
+          <div class="qr-mini-card">
+            <div class="qr-mini-title">Comida</div>
+            <div id="comida-qr" class="qr-mini-value">
+              {{ resumen_qr.comida if resumen_qr else '0h 0m 0s' }}
+            </div>
           </div>
-        </div>
 
-        <div class="form-block">
-          <label class="field-label">Tiempo en descanso</label>
-          <div id="descanso-qr" class="status-message">
-            {{ resumen_qr.descanso if resumen_qr else '0h 0m 0s' }}
+          <div class="qr-mini-card">
+            <div class="qr-mini-title">Descanso</div>
+            <div id="descanso-qr" class="qr-mini-value">
+              {{ resumen_qr.descanso if resumen_qr else '0h 0m 0s' }}
+            </div>
           </div>
         </div>
 
