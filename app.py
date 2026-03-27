@@ -1,6 +1,7 @@
 import os
-from datetime import datetime
+from datetime import datetime, date
 from zoneinfo import ZoneInfo
+
 from services.time_service import aplicar_logica_melany
 import mysql.connector
 from dotenv import load_dotenv
@@ -30,7 +31,6 @@ CORS(app)
 
 LIMITE_SEGUNDOS_MELANY = 4 * 3600
 TZ_APP = "Europe/Madrid"
-
 
 
 def get_db_connection():
@@ -73,6 +73,7 @@ def obtener_ultima_marcacion_hoy(cursor, empleado_id, fecha=None):
         (empleado_id, fecha),
     )
     return cursor.fetchone()
+
 
 def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
     entrada = None
@@ -175,6 +176,78 @@ def calcular_resumen_marcaciones(marcaciones, empleado_id=None, ahora=None):
         "segundos_netos": segundos_netos_mostrados,
     }
 
+
+def obtener_estado_actual(marcaciones):
+    estado = "sin iniciar"
+    ultima_marcacion = None
+    desde = None
+
+    if marcaciones:
+        ultima = marcaciones[-1]
+        ultima_marcacion = ultima["tipo"]
+
+        if ultima["tipo"] in {"entrada", "fin_comida", "fin_descanso"}:
+            estado = "trabajando"
+            desde = ultima["fecha_hora"]
+        elif ultima["tipo"] == "inicio_comida":
+            estado = "en comida"
+            desde = ultima["fecha_hora"]
+        elif ultima["tipo"] == "inicio_descanso":
+            estado = "en descanso"
+            desde = ultima["fecha_hora"]
+        elif ultima["tipo"] == "salida":
+            estado = "finalizado"
+
+    return {
+        "estado": estado,
+        "ultima_marcacion": ultima_marcacion,
+        "desde": desde,
+    }
+
+
+def obtener_resumen_qr_empleado(cursor, empleado_id, ahora=None):
+    if ahora is None:
+        ahora = datetime.now(ZoneInfo(TZ_APP)).replace(tzinfo=None)
+
+    hoy = ahora.date()
+
+    cursor.execute(
+        """
+        SELECT tipo, fecha_hora
+        FROM marcaciones
+        WHERE empleado_id = %s AND DATE(fecha_hora) = %s
+        ORDER BY fecha_hora ASC
+        """,
+        (empleado_id, hoy),
+    )
+    marcaciones = cursor.fetchall()
+
+    resumen = calcular_resumen_marcaciones(
+        marcaciones,
+        empleado_id=empleado_id,
+        ahora=ahora,
+    )
+
+    estado_info = obtener_estado_actual(marcaciones)
+
+    return {
+        "fecha": str(hoy),
+        "estado": estado_info["estado"],
+        "ultima_marcacion": estado_info["ultima_marcacion"],
+        "desde": estado_info["desde"].isoformat() if estado_info["desde"] else None,
+        "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
+        "comida": formatear_tiempo(resumen["segundos_comida"]),
+        "descanso": formatear_tiempo(resumen["segundos_descanso"]),
+        "neto": formatear_tiempo(resumen["segundos_netos"]),
+        "segundos_trabajados": resumen["segundos_trabajados"],
+        "segundos_comida": resumen["segundos_comida"],
+        "segundos_descanso": resumen["segundos_descanso"],
+        "segundos_netos": resumen["segundos_netos"],
+        "segundos_trabajados_reales": resumen["segundos_trabajados_reales"],
+        "segundos_netos_reales": resumen["segundos_netos_reales"],
+    }
+
+
 @app.route("/configurar_qr/<int:empleado_id>", methods=["POST"])
 def configurar_qr(empleado_id):
     data = request.get_json(silent=True) or {}
@@ -200,6 +273,7 @@ def configurar_qr(empleado_id):
     finally:
         conn.close()
 
+
 @app.route("/empleados")
 def empleados():
     conn = get_db_connection()
@@ -213,6 +287,7 @@ def empleados():
 
     return jsonify(result)
 
+
 @app.route("/marcar", methods=["GET"])
 def vista_marcar_qr():
     token = request.args.get("token", "").strip()
@@ -221,19 +296,57 @@ def vista_marcar_qr():
         return "Token no proporcionado", 400
 
     conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
     try:
         empleado = obtener_empleado_por_token(conn, token)
 
         if not empleado or not empleado["activo"]:
             return "Empleado no encontrado o inactivo", 404
 
+        ahora = datetime.now(ZoneInfo(TZ_APP)).replace(tzinfo=None)
+        resumen_qr = obtener_resumen_qr_empleado(cursor, empleado["id"], ahora)
+
         return render_template(
             "marcar_qr.html",
             empleado=empleado,
-            token=token
+            token=token,
+            resumen_qr=resumen_qr
         )
     finally:
+        cursor.close()
         conn.close()
+
+
+@app.route("/api/qr_resumen", methods=["GET"])
+def api_qr_resumen():
+    token = request.args.get("token", "").strip()
+
+    if not token:
+        return jsonify({"error": "Token requerido"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        empleado = obtener_empleado_por_token(conn, token)
+
+        if not empleado or not empleado["activo"]:
+            return jsonify({"error": "Empleado no encontrado o inactivo"}), 404
+
+        ahora = datetime.now(ZoneInfo(TZ_APP)).replace(tzinfo=None)
+        resumen_qr = obtener_resumen_qr_empleado(cursor, empleado["id"], ahora)
+
+        return jsonify({
+            "empleado_id": empleado["id"],
+            "nombre": empleado["nombre"],
+            **resumen_qr
+        })
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @app.route("/api/marcar_qr", methods=["POST"])
 def api_marcar_qr():
     data = request.get_json(silent=True) or {}
@@ -314,6 +427,7 @@ def api_marcar_qr():
     finally:
         cursor.close()
         conn.close()
+
 
 @app.route("/marcar", methods=["POST"])
 def marcar():
@@ -458,48 +572,31 @@ def resumen_hoy():
             ahora=ahora,
         )
 
-        estado = "sin iniciar"
-        ultima_marcacion = None
-        desde = None
-
-        if marcaciones:
-            ultima = marcaciones[-1]
-            ultima_marcacion = ultima["tipo"]
-
-            if ultima["tipo"] in {"entrada", "fin_comida", "fin_descanso"}:
-                estado = "trabajando"
-                desde = ultima["fecha_hora"]
-            elif ultima["tipo"] == "inicio_comida":
-                estado = "en comida"
-                desde = ultima["fecha_hora"]
-            elif ultima["tipo"] == "inicio_descanso":
-                estado = "en descanso"
-                desde = ultima["fecha_hora"]
-            elif ultima["tipo"] == "salida":
-                estado = "finalizado"
+        estado_info = obtener_estado_actual(marcaciones)
 
         respuesta.append(
-    {
-        "empleado_id": emp["id"],
-        "nombre": emp["nombre"],
-        "estado": estado,
-        "ultima_marcacion": ultima_marcacion,
-        "desde": desde,
+            {
+                "empleado_id": emp["id"],
+                "nombre": emp["nombre"],
+                "estado": estado_info["estado"],
+                "ultima_marcacion": estado_info["ultima_marcacion"],
+                "desde": estado_info["desde"],
 
-        "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
-        "comida": formatear_tiempo(resumen["segundos_comida"]),
-        "descanso": formatear_tiempo(resumen["segundos_descanso"]),
-        "neto": formatear_tiempo(resumen["segundos_netos"]),
+                "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
+                "comida": formatear_tiempo(resumen["segundos_comida"]),
+                "descanso": formatear_tiempo(resumen["segundos_descanso"]),
+                "neto": formatear_tiempo(resumen["segundos_netos"]),
 
-        "segundos_trabajados": resumen["segundos_trabajados"],
-        "segundos_comida": resumen["segundos_comida"],
-        "segundos_descanso": resumen["segundos_descanso"],
-        "segundos_netos": resumen["segundos_netos"],
+                "segundos_trabajados": resumen["segundos_trabajados"],
+                "segundos_comida": resumen["segundos_comida"],
+                "segundos_descanso": resumen["segundos_descanso"],
+                "segundos_netos": resumen["segundos_netos"],
 
-        "segundos_trabajados_reales": resumen["segundos_trabajados_reales"],
-        "segundos_netos_reales": resumen["segundos_netos_reales"],
-    }
-)
+                "segundos_trabajados_reales": resumen["segundos_trabajados_reales"],
+                "segundos_netos_reales": resumen["segundos_netos_reales"],
+            }
+        )
+
     cursor.close()
     conn.close()
 
@@ -551,55 +648,56 @@ def historial():
     resultado = []
 
     for fila in filas:
-       entrada = fila["entrada"]
-       salida = fila["salida"]
-       inicio_comida = fila["inicio_comida"]
-       fin_comida = fila["fin_comida"]
-       inicio_descanso = fila["inicio_descanso"]
-       fin_descanso = fila["fin_descanso"]
+        entrada = fila["entrada"]
+        salida = fila["salida"]
+        inicio_comida = fila["inicio_comida"]
+        fin_comida = fila["fin_comida"]
+        inicio_descanso = fila["inicio_descanso"]
+        fin_descanso = fila["fin_descanso"]
 
-    total_trabajado = 0
-    total_comida = 0
-    total_descanso = 0
+        total_trabajado = 0
+        total_comida = 0
+        total_descanso = 0
 
-    if entrada and salida:
-        total_trabajado = int((salida - entrada).total_seconds())
+        if entrada and salida:
+            total_trabajado = int((salida - entrada).total_seconds())
 
-    if inicio_comida and fin_comida:
-        total_comida = int((fin_comida - inicio_comida).total_seconds())
+        if inicio_comida and fin_comida:
+            total_comida = int((fin_comida - inicio_comida).total_seconds())
 
-    if inicio_descanso and fin_descanso:
-        total_descanso = int((fin_descanso - inicio_descanso).total_seconds())
+        if inicio_descanso and fin_descanso:
+            total_descanso = int((fin_descanso - inicio_descanso).total_seconds())
 
-    neto = max(0, total_trabajado - total_comida - total_descanso)
+        neto = max(0, total_trabajado - total_comida - total_descanso)
 
-    resultado.append(
-        {
-            "empleado_id": fila["empleado_id"],
-            "nombre": fila["nombre"],
-            "fecha": str(fila["fecha"]),
-            "entrada": entrada.strftime("%H:%M:%S") if entrada else "-",
-            "salida": salida.strftime("%H:%M:%S") if salida else "-",
-            "inicio_comida": inicio_comida.strftime("%H:%M:%S") if inicio_comida else "-",
-            "fin_comida": fin_comida.strftime("%H:%M:%S") if fin_comida else "-",
-            "inicio_descanso": inicio_descanso.strftime("%H:%M:%S") if inicio_descanso else "-",
-            "fin_descanso": fin_descanso.strftime("%H:%M:%S") if fin_descanso else "-",
-            "trabajado": formatear_tiempo(total_trabajado),
-            "comida": formatear_tiempo(total_comida),
-            "descanso": formatear_tiempo(total_descanso),
-            "neto": formatear_tiempo(neto),
-        }
-    )
+        resultado.append(
+            {
+                "empleado_id": fila["empleado_id"],
+                "nombre": fila["nombre"],
+                "fecha": str(fila["fecha"]),
+                "entrada": entrada.strftime("%H:%M:%S") if entrada else "-",
+                "salida": salida.strftime("%H:%M:%S") if salida else "-",
+                "inicio_comida": inicio_comida.strftime("%H:%M:%S") if inicio_comida else "-",
+                "fin_comida": fin_comida.strftime("%H:%M:%S") if fin_comida else "-",
+                "inicio_descanso": inicio_descanso.strftime("%H:%M:%S") if inicio_descanso else "-",
+                "fin_descanso": fin_descanso.strftime("%H:%M:%S") if fin_descanso else "-",
+                "trabajado": formatear_tiempo(total_trabajado),
+                "comida": formatear_tiempo(total_comida),
+                "descanso": formatear_tiempo(total_descanso),
+                "neto": formatear_tiempo(neto),
+            }
+        )
 
     cursor.close()
     conn.close()
 
     return jsonify(resultado)
 
-
+    
 @app.route("/")
 def servir_index():
-    return render_template ("index.html")
+    return render_template("index.html")
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)

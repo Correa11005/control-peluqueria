@@ -23,6 +23,41 @@
         </div>
 
         <div class="form-block">
+          <label class="field-label">Estado actual</label>
+          <div id="estado-qr" class="status-message">
+            {{ resumen_qr.estado if resumen_qr else 'sin iniciar' }}
+          </div>
+        </div>
+
+        <div class="form-block">
+          <label class="field-label">Tiempo trabajado hoy</label>
+          <div id="tiempo-qr" class="status-message">
+            {{ resumen_qr.trabajado if resumen_qr else '0h 0m 0s' }}
+          </div>
+        </div>
+
+        <div class="form-block">
+          <label class="field-label">Tiempo neto</label>
+          <div id="neto-qr" class="status-message">
+            {{ resumen_qr.neto if resumen_qr else '0h 0m 0s' }}
+          </div>
+        </div>
+
+        <div class="form-block">
+          <label class="field-label">Tiempo en comida</label>
+          <div id="comida-qr" class="status-message">
+            {{ resumen_qr.comida if resumen_qr else '0h 0m 0s' }}
+          </div>
+        </div>
+
+        <div class="form-block">
+          <label class="field-label">Tiempo en descanso</label>
+          <div id="descanso-qr" class="status-message">
+            {{ resumen_qr.descanso if resumen_qr else '0h 0m 0s' }}
+          </div>
+        </div>
+
+        <div class="form-block">
           <label for="pin" class="field-label">PIN</label>
           <input type="password" id="pin" class="input-control" maxlength="4" placeholder="Ingresa tu PIN">
         </div>
@@ -42,6 +77,28 @@
       </section>
     </main>
   </div>
+
+  <script id="resumen-qr-data" type="application/json">
+    {{ resumen_qr | tojson | safe if resumen_qr else {
+      "estado": "sin iniciar",
+      "trabajado": "0h 0m 0s",
+      "neto": "0h 0m 0s",
+      "comida": "0h 0m 0s",
+      "descanso": "0h 0m 0s",
+      "segundos_trabajados": 0,
+      "segundos_comida": 0,
+      "segundos_descanso": 0,
+      "segundos_netos": 0,
+      "segundos_trabajados_reales": 0,
+      "segundos_netos_reales": 0
+    } | tojson | safe }}
+  </script>
+
+  <script>
+    window.RESUMEN_QR_INICIAL = JSON.parse(
+      document.getElementById("resumen-qr-data").textContent
+    );
+  </script>
 
   <script src="{{ url_for('static', filename='marcar_qr.js') }}"></script>
 </body>
