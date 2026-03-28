@@ -138,7 +138,6 @@ function iniciarCronometro(emp) {
     if (descansoEl) descansoEl.innerText = formatear(descanso);
   }, 1000);
 }
-
 function marcarAdmin(tipo) {
   const empleadoId = document.getElementById("empleado_admin").value;
 
@@ -149,27 +148,41 @@ function marcarAdmin(tipo) {
 
   fetch("/marcar_admin", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
       empleado_id: empleadoId,
       tipo: tipo
     })
   })
-  .then(res => res.json())
+  .then(r => r.json())
   .then(data => {
     document.getElementById("mensaje-admin").innerText = data.mensaje;
-
-    // opcional: refrescar resumen
-    cargarResumen();
+    if (typeof cargarResumen === "function") {
+      cargarResumen();
+    }
   })
-  .catch(err => {
-    console.error(err);
-    alert("Error al marcar");
-  });
+  .catch(() => alert("Error al marcar"));
 }
 
+function marcarQr(tipo) {
+  const pin = document.getElementById("pin").value;
+  const token = document.getElementById("token").value;
+
+  fetch("/marcar_qr", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      token: token,
+      pin: pin,
+      tipo: tipo
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById("mensaje").innerText = data.mensaje;
+  })
+  .catch(() => alert("Error al marcar"));
+}
   
 function renderizarTrabajadores(data) {
   const panel = document.getElementById("panelTrabajadores");

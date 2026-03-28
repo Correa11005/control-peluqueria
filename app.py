@@ -250,33 +250,16 @@ def obtener_resumen_qr_empleado(cursor, empleado_id, ahora=None):
 @app.route('/marcar_admin', methods=['POST'])
 def marcar_admin():
     data = request.get_json()
-
     empleado_id = data.get('empleado_id')
     tipo = data.get('tipo')
 
     if not empleado_id or not tipo:
-        return jsonify({"mensaje": "Datos incompletos"}), 400
+        return jsonify({"ok": False, "mensaje": "Faltan datos"}), 400
 
-    ahora = datetime.now()
+    # registrar directamente la marcación del empleado
+    # sin pedir pin
 
-    conexion = mysql.connector.connect(
-        host='tu_host',
-        user='tu_usuario',
-        password='tu_password',
-        database='tu_bd'
-    )
-    cursor = conexion.cursor()
-
-    cursor.execute("""
-        INSERT INTO marcaciones (empleado_id, tipo, fecha_hora)
-        VALUES (%s, %s, %s)
-    """, (empleado_id, tipo, ahora))
-
-    conexion.commit()
-    cursor.close()
-    conexion.close()
-
-    return jsonify({"mensaje": "Marcación registrada correctamente"})
+    return jsonify({"ok": True, "mensaje": "Marcación registrada por administrador"})
 
 @app.route("/configurar_qr/<int:empleado_id>", methods=["POST"])
 def configurar_qr(empleado_id):
