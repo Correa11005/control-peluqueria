@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
 <body>
-  <div class="app-shell">
+    <div class="app-shell">
     <header class="topbar">
       <div class="brand">
         <div class="brand-logo">
@@ -35,6 +35,26 @@
       <p>Resumen general del día actual</p>
     </div>
   </div>
+   <div class="form-block">
+  <label class="field-label">Empleado</label>
+  <select id="empleado_admin" class="input-control">
+    <option value="">Seleccione empleado</option>
+    <option value="1">Camilo</option>
+    <option value="2">Ronald</option>
+    <option value="3">Melany</option>
+  </select>
+</div>
+
+<div class="action-grid">
+  <button class="btn btn-success" onclick="marcarAdmin('entrada')">Entrada</button>
+  <button class="btn btn-danger" onclick="marcarAdmin('salida')">Salida</button>
+  <button class="btn btn-neutral" onclick="marcarAdmin('inicio_comida')">Inicio comida</button>
+  <button class="btn btn-neutral" onclick="marcarAdmin('fin_comida')">Fin comida</button>
+  <button class="btn btn-secondary" onclick="marcarAdmin('inicio_descanso')">Descanso</button>
+  <button class="btn btn-secondary-dark" onclick="marcarAdmin('fin_descanso')">Fin descanso</button>
+</div>
+
+<div id="mensaje-admin" class="status-message"></div>
 
   <div id="panelTrabajadores" class="workers-grid">
     <p>Cargando resumen de hoy...</p>

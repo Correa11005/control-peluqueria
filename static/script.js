@@ -139,6 +139,38 @@ function iniciarCronometro(emp) {
   }, 1000);
 }
 
+function marcarAdmin(tipo) {
+  const empleadoId = document.getElementById("empleado_admin").value;
+
+  if (!empleadoId) {
+    alert("Selecciona un empleado");
+    return;
+  }
+
+  fetch("/marcar_admin", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      empleado_id: empleadoId,
+      tipo: tipo
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("mensaje-admin").innerText = data.mensaje;
+
+    // opcional: refrescar resumen
+    cargarResumen();
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Error al marcar");
+  });
+}
+
+  
 function renderizarTrabajadores(data) {
   const panel = document.getElementById("panelTrabajadores");
   if (!panel) return;
