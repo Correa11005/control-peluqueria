@@ -146,7 +146,7 @@ function marcarAdmin(tipo) {
     return;
   }
 
-  fetch("/marcar_admin", {
+  fetch("/marcar", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
