@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 
+TZ_APP = "Europe/Madrid"
+
 from services.empleado_service import (
     configurar_qr_y_pin,
     obtener_empleado_por_token,
@@ -47,6 +49,9 @@ def get_db_connection():
     cursor.close()
 
     return conn
+
+def ahora_madrid():
+    return datetime.now(ZoneInfo(TZ_APP))
 
 
 def formatear_tiempo(segundos):
@@ -424,10 +429,12 @@ def api_marcar_qr():
         elif tipo == "fin_descanso":
             if ultimo_tipo != "inicio_descanso":
                 return jsonify({"error": "No se puede finalizar descanso sin haberlo iniciado"}), 400
+            
+        ahora = ahora_madrid().replace(tzinfo=None)
 
         cursor.execute(
-            "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, NOW())",
-            (empleado["id"], tipo),
+            "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, %s)",
+            (empleado["id"], tipo, ahora),
         )
         conn.commit()
 
@@ -503,10 +510,10 @@ def marcar():
             cursor.close()
             conn.close()
             return jsonify({"error": "No se puede finalizar descanso sin haberlo iniciado"}), 400
-
+        ahora = ahora_madrid().replace(tzinfo=None)
     cursor.execute(
-        "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, NOW())",
-        (empleado_id, tipo),
+        "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, %s )",
+        (empleado_id, tipo, ahora),
     )
     conn.commit()
 
