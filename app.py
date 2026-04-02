@@ -504,13 +504,15 @@ def marcar():
             cursor.close()
             conn.close()
             return jsonify({"error": "No se puede iniciar descanso en este momento"}), 400
-
+        
     elif tipo == "fin_descanso":
         if ultimo_tipo != "inicio_descanso":
             cursor.close()
             conn.close()
             return jsonify({"error": "No se puede finalizar descanso sin haberlo iniciado"}), 400
-        ahora = ahora_madrid().replace(tzinfo=None)
+        
+    
+    ahora = ahora_madrid().replace(tzinfo=None)
     cursor.execute(
         "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, %s )",
         (empleado_id, tipo, ahora),
