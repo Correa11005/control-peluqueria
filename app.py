@@ -2,21 +2,18 @@ import os
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
 
-from services.time_service import aplicar_logica_melany
 import mysql.connector
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 
-TZ_APP = "Europe/Madrid"
-
+from services.time_service import aplicar_logica_melany
 from services.empleado_service import (
     configurar_qr_y_pin,
     obtener_empleado_por_token,
     resetear_intentos_pin,
     registrar_intento_fallido,
 )
-
 from services.qr_service import (
     validar_pin,
     verificar_pin,
@@ -35,6 +32,10 @@ LIMITE_SEGUNDOS_MELANY = 4 * 3600
 TZ_APP = "Europe/Madrid"
 
 
+def ahora_madrid():
+    return datetime.now(ZoneInfo(TZ_APP))
+
+
 def get_db_connection():
     conn = mysql.connector.connect(
         host=os.environ.get("MYSQLHOST"),
@@ -50,9 +51,6 @@ def get_db_connection():
 
     return conn
 
-def ahora_madrid():
-    return datetime.now(ZoneInfo(TZ_APP))
-
 
 def formatear_tiempo(segundos):
     segundos = max(0, int(segundos))
@@ -64,7 +62,7 @@ def formatear_tiempo(segundos):
 
 def obtener_ultima_marcacion_hoy(cursor, empleado_id, fecha=None):
     if fecha is None:
-        fecha = datetime.now(ZoneInfo(TZ_APP)).date()
+        fecha = ahora_madrid().date()
 
     cursor.execute(
         """
@@ -212,7 +210,7 @@ def obtener_estado_actual(marcaciones):
 
 def obtener_resumen_qr_empleado(cursor, empleado_id, ahora=None):
     if ahora is None:
-        ahora = datetime.now(ZoneInfo(TZ_APP)).replace(tzinfo=None)
+        ahora = ahora_madrid().replace(tzinfo=None)
 
     hoy = ahora.date()
 
@@ -252,19 +250,18 @@ def obtener_resumen_qr_empleado(cursor, empleado_id, ahora=None):
         "segundos_netos_reales": resumen["segundos_netos_reales"],
     }
 
-@app.route('/marcar_admin', methods=['POST'])
+
+@app.route("/marcar_admin", methods=["POST"])
 def marcar_admin():
     data = request.get_json()
-    empleado_id = data.get('empleado_id')
-    tipo = data.get('tipo')
+    empleado_id = data.get("empleado_id")
+    tipo = data.get("tipo")
 
     if not empleado_id or not tipo:
         return jsonify({"ok": False, "mensaje": "Faltan datos"}), 400
 
-    # registrar directamente la marcación del empleado
-    # sin pedir pin
-
     return jsonify({"ok": True, "mensaje": "Marcación registrada por administrador"})
+
 
 @app.route("/configurar_qr/<int:empleado_id>", methods=["POST"])
 def configurar_qr(empleado_id):
@@ -282,12 +279,14 @@ def configurar_qr(empleado_id):
         url_qr = f"{base_url}/marcar?token={token}"
         ruta_qr = generar_imagen_qr(url_qr, f"empleado_{empleado_id}")
 
-        return jsonify({
-            "mensaje": "QR configurado correctamente",
-            "token": token,
-            "url": url_qr,
-            "qr_imagen": ruta_qr
-        })
+        return jsonify(
+            {
+                "mensaje": "QR configurado correctamente",
+                "token": token,
+                "url": url_qr,
+                "qr_imagen": ruta_qr,
+            }
+        )
     finally:
         conn.close()
 
@@ -322,14 +321,14 @@ def vista_marcar_qr():
         if not empleado or not empleado["activo"]:
             return "Empleado no encontrado o inactivo", 404
 
-        ahora = datetime.now(ZoneInfo(TZ_APP)).replace(tzinfo=None)
+        ahora = ahora_madrid().replace(tzinfo=None)
         resumen_qr = obtener_resumen_qr_empleado(cursor, empleado["id"], ahora)
 
         return render_template(
             "marcar_qr.html",
             empleado=empleado,
             token=token,
-            resumen_qr=resumen_qr
+            resumen_qr=resumen_qr,
         )
     finally:
         cursor.close()
@@ -352,14 +351,16 @@ def api_qr_resumen():
         if not empleado or not empleado["activo"]:
             return jsonify({"error": "Empleado no encontrado o inactivo"}), 404
 
-        ahora = datetime.now(ZoneInfo(TZ_APP)).replace(tzinfo=None)
+        ahora = ahora_madrid().replace(tzinfo=None)
         resumen_qr = obtener_resumen_qr_empleado(cursor, empleado["id"], ahora)
 
-        return jsonify({
-            "empleado_id": empleado["id"],
-            "nombre": empleado["nombre"],
-            **resumen_qr
-        })
+        return jsonify(
+            {
+                "empleado_id": empleado["id"],
+                "nombre": empleado["nombre"],
+                **resumen_qr,
+            }
+        )
     finally:
         cursor.close()
         conn.close()
@@ -402,7 +403,7 @@ def api_marcar_qr():
 
         resetear_intentos_pin(conn, empleado["id"])
 
-        hoy = datetime.now(ZoneInfo(TZ_APP)).date()
+        hoy = ahora_madrid().date()
         ultima = obtener_ultima_marcacion_hoy(cursor, empleado["id"], hoy)
         ultimo_tipo = ultima["tipo"] if ultima else None
 
@@ -429,7 +430,7 @@ def api_marcar_qr():
         elif tipo == "fin_descanso":
             if ultimo_tipo != "inicio_descanso":
                 return jsonify({"error": "No se puede finalizar descanso sin haberlo iniciado"}), 400
-            
+
         ahora = ahora_madrid().replace(tzinfo=None)
 
         cursor.execute(
@@ -438,11 +439,13 @@ def api_marcar_qr():
         )
         conn.commit()
 
-        return jsonify({
-            "ok": True,
-            "mensaje": f"Marcación registrada: {tipo}",
-            "empleado": empleado["nombre"]
-        })
+        return jsonify(
+            {
+                "ok": True,
+                "mensaje": f"Marcación registrada: {tipo}",
+                "empleado": empleado["nombre"],
+            }
+        )
 
     finally:
         cursor.close()
@@ -471,7 +474,7 @@ def marcar():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    hoy = datetime.now(ZoneInfo(TZ_APP)).date()
+    hoy = ahora_madrid().date()
     ultima = obtener_ultima_marcacion_hoy(cursor, empleado_id, hoy)
     ultimo_tipo = ultima["tipo"] if ultima else None
 
@@ -504,17 +507,17 @@ def marcar():
             cursor.close()
             conn.close()
             return jsonify({"error": "No se puede iniciar descanso en este momento"}), 400
-        
+
     elif tipo == "fin_descanso":
         if ultimo_tipo != "inicio_descanso":
             cursor.close()
             conn.close()
             return jsonify({"error": "No se puede finalizar descanso sin haberlo iniciado"}), 400
-        
-    
+
     ahora = ahora_madrid().replace(tzinfo=None)
+
     cursor.execute(
-        "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, %s )",
+        "INSERT INTO marcaciones (empleado_id, tipo, fecha_hora) VALUES (%s, %s, %s)",
         (empleado_id, tipo, ahora),
     )
     conn.commit()
@@ -572,7 +575,7 @@ def resumen_hoy():
     cursor.execute("SELECT id, nombre FROM empleados ORDER BY nombre")
     empleados = cursor.fetchall()
 
-    ahora = datetime.now(ZoneInfo(TZ_APP)).replace(tzinfo=None)
+    ahora = ahora_madrid().replace(tzinfo=None)
     hoy = ahora.date()
     respuesta = []
 
@@ -603,17 +606,14 @@ def resumen_hoy():
                 "estado": estado_info["estado"],
                 "ultima_marcacion": estado_info["ultima_marcacion"],
                 "desde": estado_info["desde"],
-
                 "trabajado": formatear_tiempo(resumen["segundos_trabajados"]),
                 "comida": formatear_tiempo(resumen["segundos_comida"]),
                 "descanso": formatear_tiempo(resumen["segundos_descanso"]),
                 "neto": formatear_tiempo(resumen["segundos_netos"]),
-
                 "segundos_trabajados": resumen["segundos_trabajados"],
                 "segundos_comida": resumen["segundos_comida"],
                 "segundos_descanso": resumen["segundos_descanso"],
                 "segundos_netos": resumen["segundos_netos"],
-
                 "segundos_trabajados_reales": resumen["segundos_trabajados_reales"],
                 "segundos_netos_reales": resumen["segundos_netos_reales"],
             }
@@ -715,7 +715,7 @@ def historial():
 
     return jsonify(resultado)
 
-    
+
 @app.route("/")
 def servir_index():
     return render_template("index.html")
