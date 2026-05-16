@@ -43,11 +43,8 @@ def get_db_connection():
         password=os.environ.get("MYSQLPASSWORD"),
         database=os.environ.get("MYSQLDATABASE"),
         port=int(os.environ.get("MYSQLPORT", 3306)),
+        ssl_disabled=False
     )
-
-    cursor = conn.cursor()
-    cursor.execute(f"SET time_zone = '{TZ_APP}'")
-    cursor.close()
 
     return conn
 
