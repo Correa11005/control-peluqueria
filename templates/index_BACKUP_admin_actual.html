@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+
+
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Asistencia con QR</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Salon base</p>
+      <h1>Control de asistencia con cronometro dentro del QR</h1>
+      <p class="lede">
+        Tomando como referencia el video, el tiempo de cada empleado queda incrustado
+        en su propio bloque QR para que la lectura sea inmediata.
+      </p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Vista propuesta</p>
+          <h2>Trabajadores activos</h2>
+        </div>
+        <div class="status-pill">4 codigos listos</div>
+      </div>
+
+      <div class="employee-grid" id="employeeGrid">
+        <article class="employee-card" data-seconds="0">
+          <div class="employee-meta">
+            <span class="employee-role">Barbero</span>
+            <h3>Ronald</h3>
+            <p>Sin entrada registrada</p>
+          </div>
+
+          <div class="qr-block">
+            <div class="timer-chip">
+              <span class="timer-label">Tiempo</span>
+              <strong class="timer-value">0h 0m 0s</strong>
+            </div>
+            <div class="qr-visual" aria-hidden="true"></div>
+            <div class="qr-caption">
+              <span>QR personal</span>
+              <span class="badge muted">Sin iniciar</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="employee-card is-live" data-seconds="411">
+          <div class="employee-meta">
+            <span class="employee-role">Colorista</span>
+            <h3>Melany</h3>
+            <p>Estado: trabajando</p>
+          </div>
+
+          <div class="qr-block">
+            <div class="timer-chip">
+              <span class="timer-label">Tiempo</span>
+              <strong class="timer-value">0h 6m 51s</strong>
+            </div>
+            <div class="qr-visual" aria-hidden="true"></div>
+            <div class="qr-caption">
+              <span>QR personal</span>
+              <span class="badge live">Activo</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="employee-card" data-seconds="1332">
+          <div class="employee-meta">
+            <span class="employee-role">Manicurista</span>
+            <h3>Ingrid</h3>
+            <p>Meta del turno: 8h</p>
+          </div>
+
+          <div class="qr-block">
+            <div class="timer-chip">
+              <span class="timer-label">Tiempo</span>
+              <strong class="timer-value">0h 22m 12s</strong>
+            </div>
+            <div class="qr-visual" aria-hidden="true"></div>
+            <div class="qr-caption">
+              <span>QR personal</span>
+              <span class="badge break">Comida</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="employee-card" data-seconds="925">
+          <div class="employee-meta">
+            <span class="employee-role">Recepcion</span>
+            <h3>Sergio</h3>
+            <p>En caja y control general</p>
+          </div>
+
+          <div class="qr-block">
+            <div class="timer-chip">
+              <span class="timer-label">Tiempo</span>
+              <strong class="timer-value">0h 15m 25s</strong>
+            </div>
+            <div class="qr-visual" aria-hidden="true"></div>
+            <div class="qr-caption">
+              <span>QR personal</span>
+              <span class="badge muted">Pausado</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel compact">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Marcacion por QR</p>
+          <h2>Patron para usar en el escaneo</h2>
+        </div>
+      </div>
+
+      <div class="scan-layout">
+        <div class="scan-card">
+          <label class="field">
+            <span>Empleado</span>
+            <input type="text" value="Melany" readonly>
+          </label>
+          <label class="field">
+            <span>PIN</span>
+            <input type="password" value="0000" readonly>
+          </label>
+          <div class="actions">
+            <button class="action action-entry">Entrada</button>
+            <button class="action action-exit">Salida</button>
+            <button class="action">Inicio comida</button>
+            <button class="action">Fin comida</button>
+            <button class="action">Inicio descanso</button>
+            <button class="action">Fin descanso</button>
+          </div>
+        </div>
+
+        <aside class="highlight-card">
+          <div class="highlight-top">
+            <span class="employee-role">Empleado por QR</span>
+            <h3>Melany</h3>
+            <p>El cronometro se integra dentro del area del QR, no en una caja aparte.</p>
+          </div>
+
+          <div class="qr-block qr-block-focus" data-seconds="411">
+            <div class="timer-chip">
+              <span class="timer-label">Tiempo actual</span>
+              <strong class="timer-value">0h 6m 51s</strong>
+            </div>
+            <div class="qr-visual" aria-hidden="true"></div>
+            <div class="qr-caption">
+              <span>QR de marcacion</span>
+              <span class="badge live">Trabajando</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+ <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
